@@ -6,6 +6,7 @@ def test_root_health_endpoint(client):
     assert data["version"] == "0.1.0"
     assert "environment" in data
     assert "timestamp" in data
+    assert "gemini_configured" in data
 
 
 def test_v1_health_endpoint(client):

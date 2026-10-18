@@ -37,6 +37,7 @@ import com.aicallassistant.app.ui.screens.settings.SettingsScreen
 import com.aicallassistant.app.ui.screens.simulate.SimulateCallScreen
 import com.aicallassistant.app.ui.viewmodel.ActionItemsViewModel
 import com.aicallassistant.app.ui.viewmodel.AuthViewModel
+import com.aicallassistant.app.ui.screens.splash.SplashScreen
 import com.aicallassistant.app.ui.viewmodel.CallDetailViewModel
 import com.aicallassistant.app.ui.viewmodel.CallHistoryViewModel
 import com.aicallassistant.app.ui.viewmodel.HomeViewModel
@@ -44,6 +45,7 @@ import com.aicallassistant.app.ui.viewmodel.SettingsViewModel
 import com.aicallassistant.app.ui.viewmodel.SimulateCallViewModel
 
 sealed class Screen(val route: String) {
+    data object Splash : Screen("splash")
     data object Welcome : Screen("welcome")
     data object Login : Screen("login")
     data object SignUp : Screen("signup")
@@ -66,17 +68,25 @@ sealed class BottomNavItem(val route: String, val title: String, val icon: Image
 fun AppNavGraph(
     navController: NavHostController = rememberNavController()
 ) {
-    // If Supabase already has a cached token, start at Main, otherwise Welcome
-    val startDestination = if (SupabaseManager.getAccessToken() != null) {
-        Screen.Main.route
-    } else {
-        Screen.Welcome.route
-    }
-
     NavHost(
         navController = navController,
-        startDestination = startDestination
+        startDestination = Screen.Splash.route
     ) {
+        composable(Screen.Splash.route) {
+            SplashScreen(
+                onNavigateToMain = {
+                    navController.navigate(Screen.Main.route) {
+                        popUpTo(Screen.Splash.route) { inclusive = true }
+                    }
+                },
+                onNavigateToWelcome = {
+                    navController.navigate(Screen.Welcome.route) {
+                        popUpTo(Screen.Splash.route) { inclusive = true }
+                    }
+                }
+            )
+        }
+
         composable(Screen.Welcome.route) {
             WelcomeScreen(
                 onNavigateToLogin = { navController.navigate(Screen.Login.route) },

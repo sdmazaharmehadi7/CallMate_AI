@@ -1,35 +1,53 @@
 package com.aicallassistant.app.ui.theme
 
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 
-// Premium, modern Indigo/Blue tailored palette
-val PrimaryBlue = Color(0xFF0B57D0)
-val PrimaryBlueDark = Color(0xFFA8C7FA)
-val PrimaryContainer = Color(0xFFD3E3FD)
-val OnPrimaryContainer = Color(0xFF041E49)
+// CallMate Brand Colors (Matching User-Provided Logo)
+val CallMateNavyBg = Color(0xFF080B27)
+val CallMateNavySurface = Color(0xFF0D1126)
+val CallMateNavyElevated = Color(0xFF141A36)
+val CallMateNavyBorder = Color(0xFF1F274E)
 
-val SecondaryTeal = Color(0xFF006A6A)
-val SecondaryTealDark = Color(0xFF80D5D4)
+val CallMateCyan = Color(0xFF00E5FF)
+val CallMateBlue = Color(0xFF4FACFE)
+val CallMatePurple = Color(0xFF6C5CE7)
+val CallMateTeal = Color(0xFF00BCD4)
 
-val BackgroundLight = Color(0xFFF8FAFD)
-val SurfaceLight = Color(0xFFFFFFFF)
-val OnSurfaceLight = Color(0xFF1B1B1F)
-val SurfaceVariantLight = Color(0xFFE1E2EC)
+// Gradient Brushes
+val CallMatePrimaryGradient = Brush.horizontalGradient(
+    colors = listOf(Color(0xFF4FACFE), Color(0xFF00E5FF))
+)
 
-val BackgroundDark = Color(0xFF111318)
-val SurfaceDark = Color(0xFF191C20)
-val OnSurfaceDark = Color(0xFFE2E2E6)
-val SurfaceVariantDark = Color(0xFF44474F)
+val CallMatePurpleCyanGradient = Brush.horizontalGradient(
+    colors = listOf(Color(0xFF6C5CE7), Color(0xFF00E5FF))
+)
+
+val CallMateBackgroundGradient = Brush.verticalGradient(
+    colors = listOf(Color(0xFF080B27), Color(0xFF050719))
+)
+
+// Material 3 Palette Mappings
+val PrimaryCyan = Color(0xFF00E5FF)
+val PrimaryCyanDark = Color(0xFF4FACFE)
+val PrimaryContainerDark = Color(0xFF141A36)
+val OnPrimaryContainerDark = Color(0xFFE0F7FA)
+
+val BackgroundDark = Color(0xFF080B27)
+val SurfaceDark = Color(0xFF0D1126)
+val OnSurfaceDark = Color(0xFFF1F5F9)
+val SurfaceVariantDark = Color(0xFF141A36)
+val OnSurfaceVariantDark = Color(0xFF94A3B8)
 
 // Urgency badge colors
-val UrgencyLowBg = Color(0xFFE8F5E9)
-val UrgencyLowText = Color(0xFF2E7D32)
+val UrgencyLowBg = Color(0xFF064E3B)
+val UrgencyLowText = Color(0xFF34D399)
 
-val UrgencyMediumBg = Color(0xFFFFF3E0)
-val UrgencyMediumText = Color(0xFFEF6C00)
+val UrgencyMediumBg = Color(0xFF451A03)
+val UrgencyMediumText = Color(0xFFFBBF24)
 
-val UrgencyHighBg = Color(0xFFFFEBEE)
-val UrgencyHighText = Color(0xFFC62828)
+val UrgencyHighBg = Color(0xFF7C2D12)
+val UrgencyHighText = Color(0xFFFB923C)
 
-val UrgencyCriticalBg = Color(0xFFFCE4EC)
-val UrgencyCriticalText = Color(0xFFAD1457)
+val UrgencyCriticalBg = Color(0xFF7F1D1D)
+val UrgencyCriticalText = Color(0xFFF87171)

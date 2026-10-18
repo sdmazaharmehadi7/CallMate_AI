@@ -1,3 +1,4 @@
 <resources>
-    <string name="app_name">AI Call Assistant</string>
+    <string name="app_name">CallMate</string>
+    <string name="tagline">Let AI take the call.</string>
 </resources>

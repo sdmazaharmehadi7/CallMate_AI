@@ -1,6 +1,7 @@
 <resources>
-    <style name="Theme.AiCallAssistant" parent="android:Theme.Material.Light.NoActionBar">
-        <item name="android:statusBarColor">@color/surface</item>
-        <item name="android:windowLightStatusBar">true</item>
+    <style name="Theme.AiCallAssistant" parent="android:Theme.Material.NoActionBar">
+        <item name="android:statusBarColor">@color/callmate_bg</item>
+        <item name="android:windowBackground">@color/callmate_bg</item>
+        <item name="android:windowLightStatusBar">false</item>
     </style>
 </resources>

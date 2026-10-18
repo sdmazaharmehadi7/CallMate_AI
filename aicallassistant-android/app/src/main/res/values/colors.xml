@@ -1,6 +1,10 @@
 <resources>
-    <color name="primary">#0B57D0</color>
-    <color name="primary_dark">#0842A0</color>
-    <color name="surface">#F8FAFD</color>
-    <color name="surface_dark">#121316</color>
+    <color name="callmate_bg">#080B27</color>
+    <color name="callmate_surface">#0D1126</color>
+    <color name="callmate_cyan">#00BCD4</color>
+    <color name="callmate_blue">#4FACFE</color>
+    <color name="primary">#00BCD4</color>
+    <color name="primary_dark">#080B27</color>
+    <color name="surface">#080B27</color>
+    <color name="surface_dark">#080B27</color>
 </resources>

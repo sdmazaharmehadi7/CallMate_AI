@@ -1,5 +1,6 @@
 package com.aicallassistant.app.ui.screens.auth
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,11 +16,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.RecordVoiceOver
 import androidx.compose.material.icons.outlined.Security
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -29,11 +30,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.aicallassistant.app.R
+import com.aicallassistant.app.ui.theme.CallMateBackgroundGradient
+import com.aicallassistant.app.ui.theme.CallMateCyan
+import com.aicallassistant.app.ui.theme.CallMateNavyBg
+import com.aicallassistant.app.ui.theme.CallMateNavyElevated
+import com.aicallassistant.app.ui.theme.CallMateNavySurface
 
 @Composable
 fun WelcomeScreen(
@@ -41,8 +51,11 @@ fun WelcomeScreen(
     onNavigateToSignUp: () -> Unit
 ) {
     Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background
+        modifier = Modifier
+            .fillMaxSize()
+            .background(CallMateNavyBg)
+            .background(CallMateBackgroundGradient),
+        color = Color.Transparent
     ) {
         Column(
             modifier = Modifier
@@ -51,80 +64,92 @@ fun WelcomeScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             // Hero Brand Section
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Box(
+                // CallMate Logo
+                Image(
+                    painter = painterResource(id = R.drawable.callmate_logo),
+                    contentDescription = "CallMate Logo",
+                    contentScale = ContentScale.Fit,
                     modifier = Modifier
-                        .size(80.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primaryContainer),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Call,
-                        contentDescription = "App Icon",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(44.dp)
-                    )
-                }
+                        .size(140.dp)
+                        .clip(RoundedCornerShape(24.dp))
+                )
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
                 Text(
-                    text = "AI Call Assistant",
-                    style = MaterialTheme.typography.headlineLarge,
-                    color = MaterialTheme.colorScheme.onBackground
+                    text = "CallMate",
+                    fontSize = 32.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Color.White,
+                    letterSpacing = 0.5.sp
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Text(
+                    text = "Let AI take the call.",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = CallMateCyan,
+                    letterSpacing = 0.5.sp
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
-                    text = "Your intelligent screener for voice calls, transcripts, summaries, and action items.",
-                    style = MaterialTheme.typography.bodyLarge,
+                    text = "Your intelligent voice assistant that screens callers, transcribes in real-time, and organizes your action items.",
+                    fontSize = 13.sp,
                     textAlign = TextAlign.Center,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = Color(0xFF94A3B8),
+                    lineHeight = 18.sp
                 )
             }
 
-            // Feature Highlights
+            // Feature Highlights in Modern Cards
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                FeatureRow(
+                FeatureCard(
                     icon = Icons.Outlined.RecordVoiceOver,
-                    title = "Natural Voice Screening",
-                    description = "Answers simulated calls and discovers caller reasons in real-time."
+                    title = "Real-Time AI Voice Screening",
+                    description = "Screens callers live using Gemini Live multimodal speech."
                 )
-                FeatureRow(
+                FeatureCard(
                     icon = Icons.Outlined.CheckCircle,
-                    title = "Instant Action Items",
-                    description = "Extracts key follow-ups and organizes urgent caller requests."
+                    title = "Instant Actionable Summaries",
+                    description = "Extracts urgency, key facts, and follow-ups automatically."
                 )
-                FeatureRow(
+                FeatureCard(
                     icon = Icons.Outlined.Security,
-                    title = "Private & Secure",
-                    description = "Your call records and transcripts stay strictly under your account."
+                    title = "Private & User-Isolated",
+                    description = "Your transcripts and voice data stay strictly in your account."
                 )
             }
 
             // Auth Action Buttons
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Button(
                     onClick = onNavigateToSignUp,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(52.dp),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = CallMateCyan,
+                        contentColor = Color(0xFF00363D)
+                    )
                 ) {
-                    Text("Get Started", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Get Started", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 }
 
                 OutlinedButton(
@@ -132,7 +157,10 @@ fun WelcomeScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(52.dp),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = Color.White
+                    )
                 ) {
                     Text("Sign In", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                 }
@@ -142,44 +170,49 @@ fun WelcomeScreen(
 }
 
 @Composable
-private fun FeatureRow(
+private fun FeatureCard(
     icon: ImageVector,
     title: String,
     description: String
 ) {
-    Row(
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
+        shape = RoundedCornerShape(14.dp),
+        color = CallMateNavySurface
     ) {
-        Box(
-            modifier = Modifier
-                .size(44.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant),
-            contentAlignment = Alignment.Center
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(24.dp)
-            )
-        }
-
-        Spacer(modifier = Modifier.width(16.dp))
-
-        Column {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Text(
-                text = description,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(CircleShape)
+                    .background(CallMateNavyElevated),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = CallMateCyan,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(14.dp))
+            Column {
+                Text(
+                    text = title,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    color = Color.White
+                )
+                Text(
+                    text = description,
+                    fontSize = 12.sp,
+                    color = Color(0xFF94A3B8),
+                    lineHeight = 16.sp
+                )
+            }
         }
     }
 }

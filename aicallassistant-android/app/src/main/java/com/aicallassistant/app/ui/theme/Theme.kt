@@ -1,57 +1,49 @@
 package com.aicallassistant.app.ui.theme
 
-import android.os.Build
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.Color
 
-private val DarkColorScheme = darkColorScheme(
-    primary = PrimaryBlueDark,
-    onPrimary = OnPrimaryContainer,
-    primaryContainer = PrimaryBlue,
-    onPrimaryContainer = SurfaceLight,
-    secondary = SecondaryTealDark,
-    background = BackgroundDark,
-    surface = SurfaceDark,
-    onSurface = OnSurfaceDark,
-    surfaceVariant = SurfaceVariantDark
-)
-
-private val LightColorScheme = lightColorScheme(
-    primary = PrimaryBlue,
-    onPrimary = SurfaceLight,
-    primaryContainer = PrimaryContainer,
-    onPrimaryContainer = OnPrimaryContainer,
-    secondary = SecondaryTeal,
-    background = BackgroundLight,
-    surface = SurfaceLight,
-    onSurface = OnSurfaceLight,
-    surfaceVariant = SurfaceVariantLight
+private val CallMateColorScheme = darkColorScheme(
+    primary = CallMateCyan,
+    onPrimary = Color(0xFF00363D),
+    primaryContainer = CallMateNavyElevated,
+    onPrimaryContainer = Color(0xFFE0F7FA),
+    secondary = CallMateBlue,
+    onSecondary = Color(0xFF002F6C),
+    secondaryContainer = Color(0xFF1E293B),
+    onSecondaryContainer = Color(0xFFE2E8F0),
+    tertiary = CallMatePurple,
+    background = CallMateNavyBg,
+    onBackground = Color(0xFFF1F5F9),
+    surface = CallMateNavySurface,
+    onSurface = Color(0xFFF1F5F9),
+    surfaceVariant = CallMateNavyElevated,
+    onSurfaceVariant = Color(0xFF94A3B8),
+    outline = CallMateNavyBorder,
+    error = Color(0xFFEF4444),
+    errorContainer = Color(0xFF7F1D1D),
+    onErrorContainer = Color(0xFFFEE2E2)
 )
 
 @Composable
-fun AiCallAssistantTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
+fun CallMateTheme(
     content: @Composable () -> Unit
 ) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
-    }
-
     MaterialTheme(
-        colorScheme = colorScheme,
+        colorScheme = CallMateColorScheme,
         typography = Typography,
         content = content
     )
+}
+
+// Backward-compatible alias for existing references
+@Composable
+fun AiCallAssistantTheme(
+    darkTheme: Boolean = true,
+    dynamicColor: Boolean = false,
+    content: @Composable () -> Unit
+) {
+    CallMateTheme(content = content)
 }
