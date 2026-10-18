@@ -27,6 +27,10 @@ val CallMateBackgroundGradient = Brush.verticalGradient(
     colors = listOf(Color(0xFF080B27), Color(0xFF050719))
 )
 
+val CallMateHeroGradient = Brush.verticalGradient(
+    colors = listOf(Color(0xFF141A36), Color(0xFF0D1126))
+)
+
 // Material 3 Palette Mappings
 val PrimaryCyan = Color(0xFF00E5FF)
 val PrimaryCyanDark = Color(0xFF4FACFE)

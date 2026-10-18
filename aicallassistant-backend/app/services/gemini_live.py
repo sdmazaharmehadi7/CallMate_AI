@@ -10,19 +10,14 @@ from app.core.config import settings
 logger = logging.getLogger("aicallassistant.gemini_live")
 
 # System prompt defining the concise, professional AI call-screening persona
-CALL_SCREENING_SYSTEM_INSTRUCTION = """You are an AI Call Assistant screening an incoming simulated call on behalf of the user.
+CALL_SCREENING_SYSTEM_INSTRUCTION = """You are CallMate, a voice AI assistant answering an incoming call on behalf of an unavailable person.
 Operating Guidelines:
-1. Identify yourself immediately: Always state clearly upfront that you are an AI assistant answering on behalf of the user. Never pretend to be the user or a human.
-2. Ask for key information concisely:
-   - The caller's name and organization (if applicable).
-   - The reason for calling.
-   - The urgency level of the matter (low, medium, high, or critical).
-   - Any message or specific request they want to leave.
-   - Preferred callback number or contact method.
-3. Keep speaking turns short (1 to 2 sentences per turn), polite, and optimized for voice dialogue.
-4. Grounded in facts: Do not invent details or assume facts the caller has not explicitly stated. If something is unknown or ambiguous, acknowledge it as an uncertainty.
-5. If the caller asks to speak directly with the user, politely inform them the user is unavailable and offer to take a message or note the urgency.
-6. When the caller has finished, summarize what was noted, thank them, and close the call politely."""
+1. Identify yourself immediately: Always state clearly upfront that you are CallMate, an AI assistant answering on behalf of the person they are trying to reach.
+2. Be conversational, proactive, and engaging: As soon as the caller answers or pauses, acknowledge what they said and naturally ask relevant follow-up questions (e.g., asking for their name, the reason for calling, details about the meeting/topic, urgency, callback number, or any specific message).
+3. Do not remain silent when the caller finishes speaking: Actively drive the conversation forward by asking one clear, polite question at a time until you have gathered all necessary information.
+4. Keep speaking turns short (1 to 2 sentences per turn), polite, and optimized for natural speech dialogue.
+5. Grounded in facts: Do not invent details or assume availability. If the caller asks for the person, explain they are unavailable and offer to pass on their message.
+6. When the caller has finished giving their information, summarize what was noted, thank them warmly, and confirm the message will be delivered."""
 
 
 @dataclass
@@ -100,32 +95,49 @@ class GeminiLiveService(ABC):
 class GoogleGenAiLiveSession(GeminiLiveSession):
     """Real implementation of GeminiLiveSession using google-genai SDK."""
 
-    def __init__(self, raw_session: Any):
+    def __init__(self, raw_session: Any, raw_ctx: Optional[Any] = None):
         self._session = raw_session
+        self._ctx = raw_ctx
         self._closed = False
 
     async def send_audio(self, pcm_bytes: bytes) -> None:
-        if self._closed:
+        if self._closed or not pcm_bytes:
             return
         from google.genai import types
 
-        realtime_input = types.LiveClientRealtimeInput(
-            media_chunks=[types.Blob(data=pcm_bytes, mime_type="audio/pcm;rate=16000")]
-        )
-        await self._session.send(input=realtime_input)
+        try:
+            if hasattr(self._session, "send_realtime_input"):
+                await self._session.send_realtime_input(
+                    audio=types.Blob(data=pcm_bytes, mime_type="audio/pcm;rate=16000")
+                )
+            else:
+                realtime_input = types.LiveClientRealtimeInput(
+                    media_chunks=[types.Blob(data=pcm_bytes, mime_type="audio/pcm;rate=16000")]
+                )
+                await self._session.send(input=realtime_input)
+        except Exception as e:
+            if not self._closed:
+                logger.debug("Failed sending audio chunk to Gemini: %s", e)
 
     async def send_text(self, text: str) -> None:
-        if self._closed:
+        if self._closed or not text:
             return
         from google.genai import types
 
-        await self._session.send(
-            input=types.Content(
-                role="user",
-                parts=[types.Part.from_text(text=text)],
-            ),
-            end_of_turn=True,
-        )
+        try:
+            if hasattr(self._session, "send_client_content"):
+                await self._session.send_client_content(
+                    turns=types.Content(
+                        role="user",
+                        parts=[types.Part.from_text(text=text)],
+                    ),
+                    turn_complete=True,
+                )
+            else:
+                await self._session.send(input=text, end_of_turn=True)
+        except Exception as e:
+            if not self._closed:
+                logger.debug("Failed sending text to Gemini: %s", e)
 
     async def receive_events(self) -> AsyncGenerator[LiveEvent, None]:
         try:
@@ -177,8 +189,12 @@ class GoogleGenAiLiveSession(GeminiLiveSession):
         except asyncio.CancelledError:
             pass
         except Exception as e:
-            logger.warning("Gemini Live receive stream encountered exception: %s", type(e).__name__)
-            raise
+            err_str = str(e)
+            if "1000" in err_str or "ConnectionClosed" in type(e).__name__:
+                logger.info("Gemini Live receive stream ended cleanly.")
+            else:
+                logger.warning("Gemini Live receive stream encountered exception: %s (%s)", type(e).__name__, e)
+                raise
 
     async def close(self) -> None:
         self._closed = True
@@ -187,6 +203,11 @@ class GoogleGenAiLiveSession(GeminiLiveSession):
                 await self._session.close()
         except Exception as e:
             logger.debug("Exception closing Gemini Live session: %s", e)
+        try:
+            if self._ctx and hasattr(self._ctx, "__aexit__"):
+                await self._ctx.__aexit__(None, None, None)
+        except Exception as e:
+            logger.debug("Exception exiting Gemini Live context: %s", e)
 
 
 class DefaultGeminiLiveService(GeminiLiveService):
@@ -221,7 +242,7 @@ class DefaultGeminiLiveService(GeminiLiveService):
         system_instruction = custom_instructions or CALL_SCREENING_SYSTEM_INSTRUCTION
 
         config = types.LiveConnectConfig(
-            response_modalities=[types.LiveServerContentModality.AUDIO],
+            response_modalities=[types.Modality.AUDIO],
             speech_config=types.SpeechConfig(
                 voice_config=types.VoiceConfig(
                     prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=chosen_voice)
@@ -230,11 +251,17 @@ class DefaultGeminiLiveService(GeminiLiveService):
             system_instruction=types.Content(parts=[types.Part.from_text(text=system_instruction)]),
             input_audio_transcription=types.AudioTranscriptionConfig(),
             output_audio_transcription=types.AudioTranscriptionConfig(),
+            realtime_input_config=types.RealtimeInputConfig(
+                automatic_activity_detection=types.AutomaticActivityDetection(
+                    disabled=False,
+                    silence_duration_ms=800,
+                )
+            ),
         )
 
         raw_session_ctx = client.aio.live.connect(model=self.model, config=config)
         raw_session = await raw_session_ctx.__aenter__()
-        return GoogleGenAiLiveSession(raw_session)
+        return GoogleGenAiLiveSession(raw_session, raw_ctx=raw_session_ctx)
 
     async def generate_call_summary(
         self,
@@ -287,7 +314,7 @@ Return a valid JSON object matching this schema:
 }}"""
                 response = await asyncio.wait_for(
                     client.aio.models.generate_content(
-                        model=self.model,
+                        model="gemini-3.8-flash",
                         contents=prompt,
                         config={"response_mime_type": "application/json"},
                     ),

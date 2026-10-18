@@ -172,7 +172,7 @@ def test_ws_stream_successful_flow(client, user_a_call, test_db, monkeypatch):
         started_msg = ws.receive_json()
         assert started_msg["event"] == "call_started"
         assert started_msg["call_id"] == call_id
-        assert started_msg["voice"] == "Puck"
+        assert started_msg["voice"] == settings.GEMINI_DEFAULT_VOICE
 
         # 2. Receive audio out
         audio_out_msg = ws.receive_json()

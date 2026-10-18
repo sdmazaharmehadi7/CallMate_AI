@@ -193,13 +193,25 @@ fun MainContainerScreen(
     )
 
     Scaffold(
+        containerColor = com.aicallassistant.app.ui.theme.CallMateNavyBg,
         bottomBar = {
-            NavigationBar {
+            NavigationBar(
+                containerColor = com.aicallassistant.app.ui.theme.CallMateNavySurface,
+                contentColor = androidx.compose.ui.graphics.Color.White
+            ) {
                 items.forEach { item ->
+                    val isSelected = currentRoute == item.route
                     NavigationBarItem(
                         icon = { Icon(item.icon, contentDescription = item.title) },
-                        label = { Text(item.title) },
-                        selected = currentRoute == item.route,
+                        label = { Text(item.title, fontWeight = if (isSelected) androidx.compose.ui.text.font.FontWeight.Bold else androidx.compose.ui.text.font.FontWeight.Normal) },
+                        selected = isSelected,
+                        colors = androidx.compose.material3.NavigationBarItemDefaults.colors(
+                            selectedIconColor = com.aicallassistant.app.ui.theme.CallMateCyan,
+                            selectedTextColor = com.aicallassistant.app.ui.theme.CallMateCyan,
+                            indicatorColor = com.aicallassistant.app.ui.theme.CallMateCyan.copy(alpha = 0.18f),
+                            unselectedIconColor = androidx.compose.ui.graphics.Color(0xFF64748B),
+                            unselectedTextColor = androidx.compose.ui.graphics.Color(0xFF64748B)
+                        ),
                         onClick = {
                             bottomNavController.navigate(item.route) {
                                 popUpTo(bottomNavController.graph.findStartDestination().id) {

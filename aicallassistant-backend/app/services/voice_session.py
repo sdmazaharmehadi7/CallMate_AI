@@ -1,7 +1,10 @@
 import asyncio
 import base64
+import io
 import json
 import logging
+import struct
+import wave
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from fastapi import WebSocket, WebSocketDisconnect
@@ -33,6 +36,29 @@ from app.services.gemini_live import (
 )
 
 logger = logging.getLogger("aicallassistant.voice_session")
+
+
+def resample_pcm16_mono(pcm_bytes: bytes, in_rate: int, out_rate: int) -> bytes:
+    """Linear interpolation resampler for 16-bit mono PCM."""
+    if in_rate == out_rate or not pcm_bytes:
+        return pcm_bytes
+    num_samples = len(pcm_bytes) // 2
+    if num_samples == 0:
+        return b""
+    samples = struct.unpack(f"<{num_samples}h", pcm_bytes)
+    out_samples_len = int(num_samples * out_rate / in_rate)
+    ratio = in_rate / out_rate
+    out_samples = [0] * out_samples_len
+    for i in range(out_samples_len):
+        orig_idx = i * ratio
+        idx = int(orig_idx)
+        frac = orig_idx - idx
+        if idx + 1 < num_samples:
+            val = int(samples[idx] * (1 - frac) + samples[idx + 1] * frac)
+        else:
+            val = samples[min(idx, num_samples - 1)]
+        out_samples[i] = max(-32768, min(32767, val))
+    return struct.pack(f"<{out_samples_len}h", *out_samples)
 
 
 class ActiveSessionRegistry:
@@ -90,6 +116,7 @@ class VoiceSession:
         self._finalized: bool = False
         self._is_accepted: bool = False
         self._is_started: bool = False
+        self._recorded_audio_chunks: List[bytes] = []
 
     async def run(self) -> None:
         """Main lifecycle of the voice streaming session."""
@@ -159,7 +186,10 @@ class VoiceSession:
             await self.websocket.send_text(started_event.model_dump_json())
             self._is_started = True
 
-            # 6. Run bidirectional audio streaming loop with session timeout
+            # 6. Immediately trigger opening greeting from AI assistant
+            asyncio.create_task(self._trigger_greeting())
+
+            # 7. Run bidirectional audio streaming loop with session timeout
             pump_tasks = [
                 asyncio.create_task(self._client_to_gemini_pump()),
                 asyncio.create_task(self._gemini_to_client_pump()),
@@ -187,50 +217,94 @@ class VoiceSession:
                 await self._finalize_session()
             await session_registry.release(self.call_id)
 
+    async def _trigger_greeting(self) -> None:
+        """Prompts Gemini Live to immediately speak the opening greeting to the caller."""
+        if not self._active_gemini_session or self._closed:
+            return
+        # Small delay to ensure client audio subsystem is ready
+        await asyncio.sleep(0.15)
+        try:
+            greeting_prompt = (
+                "[Call answered by CallMate AI Assistant]. Immediately greet the caller out loud right now: "
+                "'Hello! You've reached CallMate, an AI assistant for the person you're trying to reach. "
+                "They're unavailable right now. May I know your name and what you're calling about?' "
+                "After greeting, listen attentively and ask follow-up questions to gather all the details."
+            )
+            await self._active_gemini_session.send_text(greeting_prompt)
+            logger.info("Triggered AI opening greeting for call %s", self.call_id)
+        except Exception as e:
+            logger.warning("Failed to trigger initial greeting for call %s: %s", self.call_id, e)
+
     async def _client_to_gemini_pump(self) -> None:
         """Receives audio and control frames from Android and forwards to Gemini Live."""
-        while not self._closed:
-            text_data = await self.websocket.receive_text()
-            if not text_data:
-                continue
+        try:
+            while not self._closed:
+                try:
+                    text_data = await self.websocket.receive_text()
+                except WebSocketDisconnect:
+                    logger.info("Client disconnected WebSocket for call %s", self.call_id)
+                    self._closed = True
+                    break
+                except Exception as e:
+                    if not self._closed:
+                        logger.debug("Error receiving text from client: %s", e)
+                    self._closed = True
+                    break
 
-            try:
-                payload = json.loads(text_data)
-            except Exception:
-                await self._send_error("INVALID_JSON", "Received malformed JSON message.")
-                continue
-
-            event_type = payload.get("event")
-            if event_type == "audio_in":
-                data_b64 = payload.get("data", "")
-                if not data_b64:
-                    continue
-
-                # Enforce payload size limit
-                if len(data_b64) > (settings.GEMINI_MAX_AUDIO_CHUNK_BYTES * 4 // 3 + 100):
-                    await self._send_error("AUDIO_CHUNK_TOO_LARGE", "Audio chunk exceeds maximum permitted size.")
+                if not text_data:
                     continue
 
                 try:
-                    pcm_bytes = base64.b64decode(data_b64)
+                    payload = json.loads(text_data)
                 except Exception:
-                    await self._send_error("INVALID_AUDIO_DATA", "Failed to decode base64 audio data.")
+                    await self._send_error("INVALID_JSON", "Received malformed JSON message.")
                     continue
 
-                if self._active_gemini_session:
-                    await self._active_gemini_session.send_audio(pcm_bytes)
+                event_type = payload.get("event")
+                if event_type == "audio_in":
+                    data_b64 = payload.get("data", "")
+                    if not data_b64:
+                        continue
 
-            elif event_type == "interrupt":
-                # User barge-in notification from client
-                if self._active_gemini_session:
-                    await self._active_gemini_session.send_text("User is speaking.")
+                    # Enforce payload size limit
+                    if len(data_b64) > (settings.GEMINI_MAX_AUDIO_CHUNK_BYTES * 4 // 3 + 100):
+                        await self._send_error("AUDIO_CHUNK_TOO_LARGE", "Audio chunk exceeds maximum permitted size.")
+                        continue
 
-            elif event_type == "end_call":
-                logger.info("Client requested graceful end_call for %s", self.call_id)
-                self._closed = True
-                break
-            else:
-                await self._send_error("UNKNOWN_EVENT", f"Unsupported event type: '{event_type}'")
+                    try:
+                        pcm_bytes = base64.b64decode(data_b64)
+                    except Exception:
+                        await self._send_error("INVALID_AUDIO_DATA", "Failed to decode base64 audio data.")
+                        continue
+
+                    if self._active_gemini_session and not self._closed:
+                        # Save caller audio chunk (16kHz PCM16) for call recording
+                        self._recorded_audio_chunks.append(pcm_bytes)
+                        try:
+                            await self._active_gemini_session.send_audio(pcm_bytes)
+                        except Exception as e:
+                            if not self._closed:
+                                logger.debug("Error forwarding audio to Gemini: %s", e)
+
+                elif event_type == "interrupt":
+                    # User barge-in notification from client
+                    if self._active_gemini_session and not self._closed:
+                        try:
+                            await self._active_gemini_session.send_text("User is speaking.")
+                        except Exception as e:
+                            logger.debug("Error forwarding interrupt to Gemini: %s", e)
+
+                elif event_type == "end_call":
+                    logger.info("Client requested graceful end_call for %s", self.call_id)
+                    self._closed = True
+                    break
+                else:
+                    await self._send_error("UNKNOWN_EVENT", f"Unsupported event type: '{event_type}'")
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            if not self._closed:
+                logger.warning("Unexpected error in client_to_gemini_pump: %s", e)
 
     async def _gemini_to_client_pump(self) -> None:
         """Receives audio chunks, transcripts, and interruption events from Gemini Live and streams to Android."""
@@ -243,7 +317,14 @@ class VoiceSession:
                     break
 
                 if isinstance(event, LiveAudioChunk):
-                    # Encode 24kHz PCM chunk as base64
+                    # Save AI assistant audio resampled to 16kHz for call recording
+                    try:
+                        resampled_ai = resample_pcm16_mono(event.data, in_rate=24000, out_rate=16000)
+                        self._recorded_audio_chunks.append(resampled_ai)
+                    except Exception as err:
+                        logger.debug("Failed to resample AI chunk for recording: %s", err)
+
+                    # Encode 24kHz PCM chunk as base64 for client
                     b64_audio = base64.b64encode(event.data).decode("utf-8")
                     out_msg = AudioOutEvent(
                         data=b64_audio,
@@ -378,7 +459,29 @@ class VoiceSession:
             except Exception as e:
                 logger.error("Failed to create action item: %s", e)
 
-        # 7. Update call status to completed
+        # 7. Package and upload call recording WAV if any audio was exchanged
+        if self._recorded_audio_chunks:
+            try:
+                raw_pcm = b"".join(self._recorded_audio_chunks)
+                wav_buffer = io.BytesIO()
+                with wave.open(wav_buffer, "wb") as wf:
+                    wf.setnchannels(1)
+                    wf.setsampwidth(2)
+                    wf.setframerate(16000)
+                    wf.writeframes(raw_pcm)
+                wav_bytes = wav_buffer.getvalue()
+
+                recording_meta = self.db_service.upload_recording(
+                    call_id=self.call_id,
+                    user_id=self.user_id,
+                    wav_bytes=wav_bytes,
+                    duration_seconds=duration,
+                )
+                logger.info("Successfully recorded and uploaded audio for call %s: %s", self.call_id, recording_meta)
+            except Exception as e:
+                logger.error("Failed to build/upload recording for call %s: %s", self.call_id, e)
+
+        # 8. Update call status to completed
         try:
             self.db_service.update_call(
                 self.call_id,

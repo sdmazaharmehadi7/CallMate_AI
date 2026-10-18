@@ -4,8 +4,16 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -40,38 +48,64 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import com.aicallassistant.app.R
 import com.aicallassistant.app.data.audio.DefaultAudioCaptureManager
 import com.aicallassistant.app.domain.model.SpeakerType
 import com.aicallassistant.app.domain.model.UrgencyLevel
+import com.aicallassistant.app.ui.components.UrgencyBadge
+import com.aicallassistant.app.ui.theme.CallMateBackgroundGradient
+import com.aicallassistant.app.ui.theme.CallMateCyan
+import com.aicallassistant.app.ui.theme.CallMateNavyBg
+import com.aicallassistant.app.ui.theme.CallMateNavyElevated
+import com.aicallassistant.app.ui.theme.CallMateNavySurface
 import com.aicallassistant.app.ui.viewmodel.CallSessionState
 import com.aicallassistant.app.ui.viewmodel.LiveTranscriptTurn
 import com.aicallassistant.app.ui.viewmodel.SimulateCallViewModel
+
+private data class ScenarioPreset(
+    val title: String,
+    val name: String,
+    val number: String
+)
+
+private val SCENARIO_PRESETS = listOf(
+    ScenarioPreset("Delivery", "Amazon Courier", "+1 (555) 234-5678"),
+    ScenarioPreset("Doctor Clinic", "Dr. Smith Office", "+1 (555) 345-6789"),
+    ScenarioPreset("Bank Security", "Chase Fraud Dept", "+1 (555) 456-7890"),
+    ScenarioPreset("Custom", "Unknown Caller", "+1 (555) 000-0000")
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -83,12 +117,10 @@ fun SimulateCallScreen(
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
 
-    // Initialize AudioCaptureManager with Application Context
     LaunchedEffect(Unit) {
         viewModel.initializeCaptureManager(DefaultAudioCaptureManager(context.applicationContext))
     }
 
-    // Microphone Permission Launcher
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
@@ -104,14 +136,41 @@ fun SimulateCallScreen(
     }
 
     Scaffold(
+        containerColor = CallMateNavyBg,
         topBar = {
             TopAppBar(
-                title = { Text("Simulate AI Voice Call", fontWeight = FontWeight.Bold) },
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Image(
+                            painter = painterResource(id = R.drawable.callmate_logo),
+                            contentDescription = "CallMate",
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(RoundedCornerShape(6.dp))
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = "AI Voice Screening",
+                            color = Color.White,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = Color.White
+                        )
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = CallMateNavyBg,
+                    titleContentColor = Color.White
+                )
             )
         }
     ) { padding ->
@@ -119,187 +178,262 @@ fun SimulateCallScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .background(CallMateBackgroundGradient)
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Notice Banner
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.primaryContainer)
-                    .padding(14.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.Info,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(modifier = Modifier.width(10.dp))
-                Column {
-                    Text(
-                        text = "REAL-TIME GEMINI LIVE VOICE STREAM",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                    Text(
-                        text = "Streams 16 kHz microphone audio to Gemini Live via FastAPI WebSocket and receives 24 kHz AI speech with turn-by-turn transcripts.",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
-                    )
-                }
-            }
-
             // Microphone Permission Card
-            Card(
+            Surface(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                shape = RoundedCornerShape(14.dp),
+                color = CallMateNavySurface
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
+                        .padding(14.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(
                             modifier = Modifier
-                                .size(36.dp)
+                                .size(38.dp)
                                 .clip(CircleShape)
                                 .background(
-                                    if (uiState.hasMicrophonePermission) Color(0xFFE8F5E9) else Color(0xFFFFEBEE)
+                                    if (uiState.hasMicrophonePermission) CallMateCyan.copy(alpha = 0.2f)
+                                    else Color(0xFFEF4444).copy(alpha = 0.2f)
                                 ),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = if (uiState.hasMicrophonePermission) Icons.Default.Mic else Icons.Default.MicOff,
                                 contentDescription = null,
-                                tint = if (uiState.hasMicrophonePermission) Color(0xFF2E7D32) else Color(0xFFC62828),
+                                tint = if (uiState.hasMicrophonePermission) CallMateCyan else Color(0xFFF87171),
                                 modifier = Modifier.size(20.dp)
                             )
                         }
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
-                            Text("Microphone Access", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                             Text(
-                                text = if (uiState.hasMicrophonePermission) "Granted & Ready" else "Permission Required",
+                                text = "Microphone Access",
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                                fontSize = 14.sp
+                            )
+                            Text(
+                                text = if (uiState.hasMicrophonePermission) "Ready for voice streaming" else "Microphone permission required",
                                 fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = Color(0xFF94A3B8)
                             )
                         }
                     }
 
                     if (!uiState.hasMicrophonePermission) {
                         Button(
-                            onClick = { permissionLauncher.launch(Manifest.permission.RECORD_AUDIO) }
+                            onClick = { permissionLauncher.launch(Manifest.permission.RECORD_AUDIO) },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = CallMateCyan,
+                                contentColor = CallMateNavyBg
+                            ),
+                            shape = RoundedCornerShape(8.dp)
                         ) {
-                            Text("Grant", fontSize = 12.sp)
+                            Text("Enable", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
             }
 
-            // Caller Configuration Card (Only editable when IDLE)
+            // IDLE STATE: Scenario selector & Start screening
             if (uiState.sessionState == CallSessionState.IDLE) {
-                Card(
+                Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                    color = CallMateNavySurface
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
+                    Column(modifier = Modifier.padding(18.dp)) {
                         Text(
-                            text = "Simulated Caller Identity",
-                            style = MaterialTheme.typography.titleMedium,
+                            text = "Test Call Scenarios",
+                            color = Color.White,
+                            fontSize = 15.sp,
                             fontWeight = FontWeight.Bold
                         )
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(10.dp))
 
+                        // Quick Scenario Chips & Random Generator
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            SCENARIO_PRESETS.take(3).forEach { preset ->
+                                val isSelected = uiState.callerName == preset.name
+                                Surface(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable {
+                                            viewModel.updateCallerDetails(preset.name, preset.number)
+                                        },
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = if (isSelected) CallMateCyan.copy(alpha = 0.2f) else CallMateNavyElevated,
+                                    border = if (isSelected) androidx.compose.foundation.BorderStroke(1.dp, CallMateCyan) else null
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(vertical = 10.dp, horizontal = 6.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Text(
+                                            text = preset.title,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = if (isSelected) CallMateCyan else Color.White
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Random Caller generator button
+                        OutlinedButton(
+                            onClick = {
+                                val randomPool = listOf(
+                                    ScenarioPreset("Delivery", "Amazon Courier (Simulated)", "+1 (555) 019-2831"),
+                                    ScenarioPreset("Clinic", "Dr. Chen's Clinic (Simulated)", "+1 (555) 014-9923"),
+                                    ScenarioPreset("Colleague", "Sarah from Marketing (Simulated)", "+1 (555) 018-4451"),
+                                    ScenarioPreset("Bank", "First Horizon Fraud Alert (Simulated)", "+1 (555) 012-7782"),
+                                    ScenarioPreset("Contractor", "Dave Plumbing Service (Simulated)", "+1 (555) 016-3390"),
+                                    ScenarioPreset("Recruiter", "Apex Tech Talent (Simulated)", "+1 (555) 017-8824")
+                                )
+                                val picked = randomPool.random()
+                                viewModel.updateCallerDetails(picked.name, picked.number)
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(10.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, CallMateCyan.copy(alpha = 0.6f)),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = CallMateCyan)
+                        ) {
+                            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("🎲 Generate Random Test Caller", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Caller Name
                         OutlinedTextField(
                             value = uiState.callerName,
                             onValueChange = { viewModel.updateCallerDetails(it, uiState.callerNumber) },
-                            label = { Text("Caller Name") },
+                            label = { Text("Caller Name", color = Color(0xFF94A3B8)) },
                             singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                focusedBorderColor = CallMateCyan,
+                                unfocusedBorderColor = Color(0xFF334155),
+                                cursorColor = CallMateCyan
+                            ),
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(10.dp)
                         )
 
                         Spacer(modifier = Modifier.height(10.dp))
 
+                        // Caller Phone
                         OutlinedTextField(
                             value = uiState.callerNumber,
                             onValueChange = { viewModel.updateCallerDetails(uiState.callerName, it) },
-                            label = { Text("Caller Phone Number") },
+                            label = { Text("Caller Phone Number", color = Color(0xFF94A3B8)) },
                             singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                focusedBorderColor = CallMateCyan,
+                                unfocusedBorderColor = Color(0xFF334155),
+                                cursorColor = CallMateCyan
+                            ),
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(10.dp)
                         )
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(18.dp))
 
                         Button(
                             onClick = { viewModel.startSimulatedCall() },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(50.dp),
-                            shape = RoundedCornerShape(12.dp)
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = CallMateCyan,
+                                contentColor = CallMateNavyBg
+                            )
                         ) {
-                            Icon(Icons.Default.Call, contentDescription = null)
+                            Icon(Icons.Default.Call, contentDescription = null, tint = CallMateNavyBg)
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Start Real-Time AI Voice Call", fontWeight = FontWeight.Bold)
+                            Text(
+                                text = "Start AI Call Screening",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp,
+                                color = CallMateNavyBg
+                            )
                         }
                     }
                 }
             }
 
-            // Connecting State View
+            // CONNECTING STATE
             if (uiState.sessionState == CallSessionState.CONNECTING) {
-                Card(
+                Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    color = CallMateNavySurface
                 ) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(24.dp),
+                            .padding(28.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        CircularProgressIndicator(modifier = Modifier.size(48.dp))
+                        CircularProgressIndicator(
+                            color = CallMateCyan,
+                            strokeWidth = 3.dp,
+                            modifier = Modifier.size(48.dp)
+                        )
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            text = "Connecting to Gemini Live voice stream...",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
+                            text = "Connecting CallMate AI...",
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
                         )
+                        Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = "Registering call session and initializing 16kHz audio pipeline.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            text = "Establishing WebSocket session and initializing 16 kHz audio pipeline.",
+                            fontSize = 12.sp,
+                            color = Color(0xFF94A3B8),
+                            textAlign = TextAlign.Center
                         )
                     }
                 }
             }
 
-            // Active Call States: LISTENING, AI_SPEAKING, RECONNECTING
+            // ACTIVE CALL STATES: LISTENING, AI_SPEAKING, RECONNECTING
             if (uiState.sessionState == CallSessionState.LISTENING ||
                 uiState.sessionState == CallSessionState.AI_SPEAKING ||
                 uiState.sessionState == CallSessionState.RECONNECTING
             ) {
-                Card(
+                Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    shape = RoundedCornerShape(18.dp),
+                    color = CallMateNavySurface
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        // Header with caller & status badge
+                    Column(
+                        modifier = Modifier.padding(18.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        // Caller header & Status pill
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -308,33 +442,52 @@ fun SimulateCallScreen(
                             Column {
                                 Text(
                                     text = uiState.callerName,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
                                 )
                                 Text(
                                     text = uiState.callerNumber,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    fontSize = 12.sp,
+                                    color = Color(0xFF94A3B8)
                                 )
                             }
 
-                            // Dynamic Status Pill
-                            StatusPill(
+                            CallMateStatusPill(
                                 state = uiState.sessionState,
                                 isMuted = uiState.isMuted
                             )
                         }
 
+                        Spacer(modifier = Modifier.height(20.dp))
+
+                        // Animated Pulse Ring
+                        CallMatePulseOrb(
+                            state = uiState.sessionState,
+                            isMuted = uiState.isMuted
+                        )
+
                         Spacer(modifier = Modifier.height(16.dp))
 
                         // Live Transcripts Section
-                        Text(
-                            text = "LIVE TRANSCRIPT",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary,
-                            letterSpacing = 1.sp
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "LIVE TRANSCRIPT",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = CallMateCyan,
+                                letterSpacing = 1.sp
+                            )
+                            Text(
+                                text = "${uiState.liveTranscripts.size} turns",
+                                fontSize = 11.sp,
+                                color = Color(0xFF94A3B8)
+                            )
+                        }
 
                         Spacer(modifier = Modifier.height(8.dp))
 
@@ -343,76 +496,93 @@ fun SimulateCallScreen(
                             currentState = uiState.sessionState
                         )
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(18.dp))
 
-                        // Call Action Controls: Mute, Interrupt, End Call
+                        // Controls: Mute, Interrupt, End Call
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // Mute / Unmute Button
-                            OutlinedButton(
+                            // Mute button
+                            Button(
                                 onClick = { viewModel.toggleMute() },
                                 modifier = Modifier
                                     .weight(1f)
                                     .height(48.dp),
-                                shape = RoundedCornerShape(10.dp),
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    containerColor = if (uiState.isMuted) Color(0xFFFFEBEE) else Color.Transparent
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (uiState.isMuted) Color(0xFF7F1D1D) else CallMateNavyElevated,
+                                    contentColor = if (uiState.isMuted) Color(0xFFFCA5A5) else Color.White
                                 )
                             ) {
                                 Icon(
                                     imageVector = if (uiState.isMuted) Icons.Default.MicOff else Icons.Default.Mic,
                                     contentDescription = null,
-                                    tint = if (uiState.isMuted) Color(0xFFC62828) else MaterialTheme.colorScheme.primary
+                                    modifier = Modifier.size(18.dp)
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = if (uiState.isMuted) "Unmute" else "Mute",
+                                    text = if (uiState.isMuted) "Muted" else "Mute",
+                                    fontSize = 13.sp,
                                     fontWeight = FontWeight.SemiBold
                                 )
                             }
 
-                            // Interrupt Button (active when AI is speaking)
+                            // Interrupt (Barge-in)
                             if (uiState.sessionState == CallSessionState.AI_SPEAKING) {
-                                OutlinedButton(
+                                Button(
                                     onClick = { viewModel.sendInterrupt() },
                                     modifier = Modifier
                                         .weight(1f)
                                         .height(48.dp),
-                                    shape = RoundedCornerShape(10.dp)
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = CallMateNavyElevated,
+                                        contentColor = CallMateCyan
+                                    )
                                 ) {
-                                    Icon(Icons.Default.GraphicEq, contentDescription = null)
+                                    Icon(
+                                        Icons.Default.GraphicEq,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Barge-In", fontSize = 12.sp)
+                                    Text("Barge-In", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                                 }
                             }
 
-                            // End Call Button
+                            // End call button
                             Button(
                                 onClick = { viewModel.endCall() },
                                 modifier = Modifier
-                                    .weight(1.2f)
+                                    .weight(1.3f)
                                     .height(48.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                                shape = RoundedCornerShape(10.dp)
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFFDC2626),
+                                    contentColor = Color.White
+                                ),
+                                shape = RoundedCornerShape(12.dp)
                             ) {
-                                Icon(Icons.Default.CallEnd, contentDescription = null)
+                                Icon(
+                                    Icons.Default.CallEnd,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("End Call", fontWeight = FontWeight.Bold)
+                                Text("End Call", fontWeight = FontWeight.Bold, fontSize = 13.sp)
                             }
                         }
                     }
                 }
             }
 
-            // Call Ended State
+            // ENDED STATE
             if (uiState.sessionState == CallSessionState.ENDED) {
-                Card(
+                Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    shape = RoundedCornerShape(18.dp),
+                    color = CallMateNavySurface
                 ) {
                     Column(
                         modifier = Modifier
@@ -422,29 +592,30 @@ fun SimulateCallScreen(
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(56.dp)
+                                .size(52.dp)
                                 .clip(CircleShape)
-                                .background(Color(0xFFE8F5E9)),
+                                .background(CallMateCyan.copy(alpha = 0.2f)),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Check,
                                 contentDescription = null,
-                                tint = Color(0xFF2E7D32),
-                                modifier = Modifier.size(32.dp)
+                                tint = CallMateCyan,
+                                modifier = Modifier.size(30.dp)
                             )
                         }
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(10.dp))
                         Text(
-                            text = "Call Completed & Saved",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold
+                            text = "Call Screened & Saved",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
                         )
                         if (uiState.durationSeconds > 0) {
                             Text(
                                 text = "Duration: ${uiState.durationSeconds}s",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                fontSize = 12.sp,
+                                color = Color(0xFF94A3B8)
                             )
                         }
 
@@ -454,8 +625,8 @@ fun SimulateCallScreen(
                         if (!uiState.callSummary.isNullOrBlank()) {
                             Surface(
                                 modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(12.dp),
-                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                shape = RoundedCornerShape(14.dp),
+                                color = CallMateNavyElevated
                             ) {
                                 Column(modifier = Modifier.padding(14.dp)) {
                                     Row(
@@ -467,21 +638,23 @@ fun SimulateCallScreen(
                                             text = "AI CALL SUMMARY",
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.primary
+                                            color = CallMateCyan
                                         )
-                                        UrgencyChip(urgency = uiState.callUrgency)
+                                        UrgencyBadge(urgency = uiState.callUrgency)
                                     }
-                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Spacer(modifier = Modifier.height(8.dp))
                                     Text(
                                         text = uiState.callSummary!!,
-                                        style = MaterialTheme.typography.bodyMedium
+                                        fontSize = 13.sp,
+                                        color = Color.White,
+                                        lineHeight = 18.sp
                                     )
                                     if (!uiState.urgencyExplanation.isNullOrBlank()) {
-                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Spacer(modifier = Modifier.height(6.dp))
                                         Text(
                                             text = "Reason: ${uiState.urgencyExplanation}",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            fontSize = 12.sp,
+                                            color = Color(0xFF94A3B8)
                                         )
                                     }
                                     if (uiState.keyFacts.isNotEmpty()) {
@@ -489,13 +662,14 @@ fun SimulateCallScreen(
                                         Text(
                                             text = "Key Facts:",
                                             fontSize = 12.sp,
-                                            fontWeight = FontWeight.SemiBold
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = Color.White
                                         )
                                         uiState.keyFacts.forEach { fact ->
                                             Text(
                                                 text = "• $fact",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                fontSize = 12.sp,
+                                                color = Color(0xFFCBD5E1)
                                             )
                                         }
                                     }
@@ -508,56 +682,77 @@ fun SimulateCallScreen(
                         uiState.callResult?.let { res ->
                             Button(
                                 onClick = { onNavigateToCallDetail(res.callId) },
-                                modifier = Modifier.fillMaxWidth()
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(48.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = CallMateCyan,
+                                    contentColor = CallMateNavyBg
+                                )
                             ) {
-                                Text("View Full Transcripts & Action Items")
+                                Text(
+                                    "View Full Call Details & Actions",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp,
+                                    color = CallMateNavyBg
+                                )
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(10.dp))
 
                         OutlinedButton(
                             onClick = { viewModel.resetCall() },
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(46.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = Color.White
+                            )
                         ) {
-                            Text("Simulate Another Call")
+                            Text("Screen Another Call", fontSize = 14.sp)
                         }
                     }
                 }
             }
 
-            // Error Display Card
+            // ERROR DISPLAY
             if (uiState.errorMessage != null) {
-                Card(
+                Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+                    shape = RoundedCornerShape(14.dp),
+                    color = Color(0xFF7F1D1D)
                 ) {
                     Column(modifier = Modifier.padding(14.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
                                 Icons.Outlined.Warning,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onErrorContainer
+                                tint = Color(0xFFFCA5A5)
                             )
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(
                                 text = "Call Error",
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onErrorContainer
+                                color = Color(0xFFFECACA)
                             )
                         }
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
                             text = uiState.errorMessage!!,
-                            color = MaterialTheme.colorScheme.onErrorContainer,
-                            style = MaterialTheme.typography.bodyMedium
+                            color = Color(0xFFFCA5A5),
+                            fontSize = 13.sp
                         )
                         Spacer(modifier = Modifier.height(10.dp))
-                        OutlinedButton(
+                        Button(
                             onClick = { viewModel.resetCall() },
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = MaterialTheme.colorScheme.onErrorContainer
-                            )
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF991B1B),
+                                contentColor = Color.White
+                            ),
+                            shape = RoundedCornerShape(8.dp)
                         ) {
                             Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
@@ -571,33 +766,92 @@ fun SimulateCallScreen(
 }
 
 @Composable
-fun StatusPill(state: CallSessionState, isMuted: Boolean) {
+private fun CallMatePulseOrb(state: CallSessionState, isMuted: Boolean) {
+    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 0.95f,
+        targetValue = 1.08f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(900, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "orb_pulse"
+    )
+
+    val orbColor = when {
+        isMuted -> Color(0xFFEF4444)
+        state == CallSessionState.AI_SPEAKING -> CallMateCyan
+        state == CallSessionState.RECONNECTING -> Color(0xFFF59E0B)
+        else -> Color(0xFF38BDF8)
+    }
+
+    Box(
+        modifier = Modifier
+            .size(90.dp)
+            .scale(if (state == CallSessionState.AI_SPEAKING || state == CallSessionState.LISTENING) pulseScale else 1f),
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .size(90.dp)
+                .clip(CircleShape)
+                .background(orbColor.copy(alpha = 0.15f))
+        )
+        Box(
+            modifier = Modifier
+                .size(68.dp)
+                .clip(CircleShape)
+                .background(orbColor.copy(alpha = 0.3f))
+        )
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .clip(CircleShape)
+                .background(orbColor),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = when {
+                    isMuted -> Icons.Default.MicOff
+                    state == CallSessionState.AI_SPEAKING -> Icons.AutoMirrored.Filled.VolumeUp
+                    else -> Icons.Default.Mic
+                },
+                contentDescription = null,
+                tint = CallMateNavyBg,
+                modifier = Modifier.size(24.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun CallMateStatusPill(state: CallSessionState, isMuted: Boolean) {
     val (bgColor, textColor, icon, label) = when {
-        isMuted -> Quadruple(Color(0xFFFFEBEE), Color(0xFFC62828), Icons.Default.MicOff, "Muted")
-        state == CallSessionState.AI_SPEAKING -> Quadruple(Color(0xFFE8EAF6), Color(0xFF283593), Icons.AutoMirrored.Filled.VolumeUp, "AI Speaking")
-        state == CallSessionState.RECONNECTING -> Quadruple(Color(0xFFFFF3E0), Color(0xFFE65100), Icons.Outlined.Warning, "Reconnecting")
-        else -> Quadruple(Color(0xFFE8F5E9), Color(0xFF2E7D32), Icons.Default.Mic, "Listening")
+        isMuted -> Quadruple(Color(0xFF7F1D1D), Color(0xFFFECACA), Icons.Default.MicOff, "Muted")
+        state == CallSessionState.AI_SPEAKING -> Quadruple(CallMateCyan.copy(alpha = 0.2f), CallMateCyan, Icons.AutoMirrored.Filled.VolumeUp, "AI Speaking")
+        state == CallSessionState.RECONNECTING -> Quadruple(Color(0xFF78350F), Color(0xFFFDE68A), Icons.Outlined.Warning, "Reconnecting")
+        else -> Quadruple(Color(0xFF065F46), Color(0xFFA7F3D0), Icons.Default.Mic, "Listening")
     }
 
     Surface(
         color = bgColor,
-        shape = RoundedCornerShape(20.dp)
+        shape = RoundedCornerShape(16.dp)
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
                 tint = textColor,
-                modifier = Modifier.size(14.dp)
+                modifier = Modifier.size(13.dp)
             )
             Spacer(modifier = Modifier.width(4.dp))
             Text(
                 text = label,
                 color = textColor,
-                fontSize = 12.sp,
+                fontSize = 11.sp,
                 fontWeight = FontWeight.Bold
             )
         }
@@ -620,9 +874,9 @@ fun LiveTranscriptBox(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 120.dp, max = 240.dp),
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+            .heightIn(min = 140.dp, max = 260.dp),
+        shape = RoundedCornerShape(14.dp),
+        color = CallMateNavyElevated
     ) {
         if (turns.isEmpty()) {
             Box(
@@ -632,10 +886,10 @@ fun LiveTranscriptBox(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "AI Call Assistant is listening...\nSpeak into your phone's microphone to begin conversation.",
+                    text = "CallMate AI is listening...\nSpeak into your phone's microphone to begin conversation.",
                     fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    color = Color(0xFF94A3B8),
+                    textAlign = TextAlign.Center
                 )
             }
         } else {
@@ -659,15 +913,15 @@ fun LiveTranscriptBox(
                             Icon(
                                 imageVector = if (isAssistant) Icons.Default.SmartToy else Icons.Default.Mic,
                                 contentDescription = null,
-                                tint = if (isAssistant) MaterialTheme.colorScheme.primary else Color(0xFF2E7D32),
+                                tint = if (isAssistant) CallMateCyan else Color(0xFF38BDF8),
                                 modifier = Modifier.size(12.dp)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = if (isAssistant) "AI Assistant" else "Caller (You)",
+                                text = if (isAssistant) "CallMate AI" else "Caller (You)",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = Color(0xFF94A3B8)
                             )
                         }
 
@@ -678,13 +932,14 @@ fun LiveTranscriptBox(
                                 bottomStart = if (isAssistant) 2.dp else 12.dp,
                                 bottomEnd = if (isAssistant) 12.dp else 2.dp
                             ),
-                            color = if (isAssistant) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
+                            color = if (isAssistant) CallMateNavySurface else Color(0xFF1E293B),
+                            border = if (isAssistant) androidx.compose.foundation.BorderStroke(1.dp, CallMateCyan.copy(alpha = 0.3f)) else null
                         ) {
                             Text(
                                 text = turn.text,
                                 fontSize = 13.sp,
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                color = if (isAssistant) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                                color = Color.White
                             )
                         }
                     }
@@ -694,27 +949,4 @@ fun LiveTranscriptBox(
     }
 }
 
-@Composable
-fun UrgencyChip(urgency: UrgencyLevel) {
-    val (bgColor, textColor) = when (urgency) {
-        UrgencyLevel.CRITICAL -> Pair(Color(0xFFFFEBEE), Color(0xFFC62828))
-        UrgencyLevel.HIGH -> Pair(Color(0xFFFFF3E0), Color(0xFFE65100))
-        UrgencyLevel.MEDIUM -> Pair(Color(0xFFFFFDE7), Color(0xFFF57F17))
-        UrgencyLevel.LOW -> Pair(Color(0xFFE8F5E9), Color(0xFF2E7D32))
-    }
-
-    Surface(
-        color = bgColor,
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Text(
-            text = urgency.value.uppercase(),
-            fontSize = 10.sp,
-            fontWeight = FontWeight.Bold,
-            color = textColor,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-        )
-    }
-}
-
-data class Quadruple<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
+private data class Quadruple<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)

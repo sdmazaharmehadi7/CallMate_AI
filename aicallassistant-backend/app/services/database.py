@@ -106,6 +106,13 @@ class DatabaseService(ABC):
         """Generate a short-lived signed URL for the call's private audio recording."""
         pass
 
+    @abstractmethod
+    def upload_recording(
+        self, call_id: str, user_id: str, wav_bytes: bytes, duration_seconds: int
+    ) -> Optional[str]:
+        """Uploads a WAV audio recording to Supabase Storage and updates the call record."""
+        pass
+
 
 class InMemoryDatabaseService(DatabaseService):
     """
@@ -405,6 +412,26 @@ class InMemoryDatabaseService(DatabaseService):
             "file_size_bytes": self.storage[recording_path].get("size_bytes", call.get("recording_size_bytes")),
         }
 
+    def upload_recording(
+        self, call_id: str, user_id: str, wav_bytes: bytes, duration_seconds: int
+    ) -> Optional[str]:
+        call = self.get_call(call_id, user_id)
+        if not call:
+            return None
+        path = f"{user_id}/{call_id}.wav"
+        self.storage[path] = {
+            "data": wav_bytes,
+            "size_bytes": len(wav_bytes),
+            "content_type": "audio/wav",
+        }
+        self.update_call(call_id, user_id, {
+            "recording_path": path,
+            "recording_duration_seconds": duration_seconds,
+            "recording_size_bytes": len(wav_bytes),
+            "has_recording": True,
+        })
+        return path
+
 
 class SupabaseDatabaseService(DatabaseService):
     """
@@ -567,7 +594,8 @@ class SupabaseDatabaseService(DatabaseService):
             .eq("sequence_order", transcript.sequence_order)
             .maybe_single()
         )
-        existing = self._safe_execute(check_q).data
+        res_check = self._safe_execute(check_q)
+        existing = res_check.data if (res_check and getattr(res_check, "data", None)) else None
         if existing:
             if existing["speaker"] == transcript.speaker and existing["text"] == transcript.text:
                 return existing
@@ -669,7 +697,8 @@ class SupabaseDatabaseService(DatabaseService):
             .eq("id", action_item_id)
             .maybe_single()
         )
-        item = self._safe_execute(item_q).data
+        item_res = self._safe_execute(item_q)
+        item = item_res.data if (item_res and getattr(item_res, "data", None)) else None
         if not item:
             return None
 
@@ -698,7 +727,7 @@ class SupabaseDatabaseService(DatabaseService):
             .eq("id", action_item_id)
         )
         res = self._safe_execute(q)
-        return res.data[0] if (res.data and len(res.data) > 0) else None
+        return res.data[0] if (res and getattr(res, "data", None) and len(res.data) > 0) else None
 
     def delete_action_item(self, action_item_id: str, user_id: str) -> bool:
         item_q = (
@@ -707,7 +736,8 @@ class SupabaseDatabaseService(DatabaseService):
             .eq("id", action_item_id)
             .maybe_single()
         )
-        item = self._safe_execute(item_q).data
+        item_res = self._safe_execute(item_q)
+        item = item_res.data if (item_res and getattr(item_res, "data", None)) else None
         if not item:
             return False
 
@@ -769,6 +799,32 @@ class SupabaseDatabaseService(DatabaseService):
                 code="STORAGE_ERROR",
                 status_code=500,
             )
+
+    def upload_recording(
+        self, call_id: str, user_id: str, wav_bytes: bytes, duration_seconds: int
+    ) -> Optional[str]:
+        call = self.get_call(call_id, user_id)
+        if not call:
+            logger.warning("Cannot upload recording: call %s not found for user %s", call_id, user_id)
+            return None
+        path = f"{user_id}/{call_id}.wav"
+        try:
+            self._client.storage.from_(settings.SUPABASE_STORAGE_BUCKET).upload(
+                path=path,
+                file=wav_bytes,
+                file_options={"content-type": "audio/wav", "upsert": "true"},
+            )
+            self.update_call(call_id, user_id, {
+                "recording_path": path,
+                "recording_duration_seconds": duration_seconds,
+                "recording_size_bytes": len(wav_bytes),
+                "has_recording": True,
+            })
+            logger.info("Successfully uploaded recording for call %s (%d bytes)", call_id, len(wav_bytes))
+            return path
+        except Exception as e:
+            logger.error("Failed to upload recording for call %s: %s", call_id, e)
+            return None
 
 
 # Default singleton provider

@@ -29,8 +29,8 @@ class Settings(BaseSettings):
 
     # Gemini Live API Settings
     GEMINI_API_KEY: str = Field(default="test_placeholder_key")
-    GEMINI_MODEL: str = "gemini-3.8-live"
-    GEMINI_DEFAULT_VOICE: str = "Puck"
+    GEMINI_MODEL: str = "gemini-2.5-flash-native-audio-latest"
+    GEMINI_DEFAULT_VOICE: str = "Aoede"
     GEMINI_LIVE_CONNECTION_TIMEOUT_SECONDS: int = 15
     GEMINI_SESSION_MAX_DURATION_SECONDS: int = 900  # Max 15 minutes per session
     GEMINI_MAX_AUDIO_CHUNK_BYTES: int = 65536  # 64 KB limit per audio chunk frame
