@@ -13,6 +13,7 @@ class HealthResponse(BaseModel):
     status: str = "healthy"
     version: str = "0.1.0"
     environment: str
+    gemini_configured: bool = False
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
