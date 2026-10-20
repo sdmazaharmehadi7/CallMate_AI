@@ -28,6 +28,12 @@ def test_create_and_list_action_items(client, user_a_headers):
     assert l1.json()["total"] == 1
     assert l1.json()["action_items"][0]["id"] == item_id
 
+    # List all user action items via /api/v1/action-items
+    all_res = client.get("/api/v1/action-items", headers=user_a_headers)
+    assert all_res.status_code == 200
+    assert all_res.json()["total"] >= 1
+    assert any(i["id"] == item_id for i in all_res.json()["action_items"])
+
 
 def test_patch_action_item_toggle_completed(client, user_a_headers):
     r = client.post("/api/v1/calls/simulate", json={"caller_name": "Task Creator"}, headers=user_a_headers)

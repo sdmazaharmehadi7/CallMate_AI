@@ -185,6 +185,10 @@ def test_ws_stream_successful_flow(client, user_a_call, test_db, monkeypatch):
         assert transcript_msg["speaker"] == "assistant"
         assert "Hello from Gemini!" in transcript_msg["text"]
 
+        # 3b. Receive turn_complete
+        turn_msg = ws.receive_json()
+        assert turn_msg["event"] == "turn_complete"
+
         # 4. Client streams audio in
         raw_pcm = b"\x00\x00" * 100
         b64_pcm = base64.b64encode(raw_pcm).decode("utf-8")

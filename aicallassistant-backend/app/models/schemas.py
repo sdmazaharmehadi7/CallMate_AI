@@ -137,7 +137,7 @@ class UpdateActionItemRequest(BaseModel):
 
 
 class ActionItemListResponse(BaseModel):
-    call_id: str
+    call_id: Optional[str] = None
     action_items: List[ActionItem]
     total: int
 
@@ -252,11 +252,21 @@ class InterruptedEvent(BaseModel):
     event: Literal["interrupted"] = "interrupted"
 
 
+class TurnCompleteEvent(BaseModel):
+    event: Literal["turn_complete"] = "turn_complete"
+    timestamp_ms: int = Field(default=0, ge=0)
+
+
 class CallEndedEvent(BaseModel):
     event: Literal["call_ended"] = "call_ended"
     call_id: str
     summary: Optional[str] = None
     duration_seconds: int = Field(default=0, ge=0)
+    key_facts: List[str] = Field(default_factory=list)
+    action_items: List[str] = Field(default_factory=list)
+    urgency: Optional[str] = None
+    urgency_explanation: Optional[str] = None
+    caller_reason: Optional[str] = None
 
 
 class StreamErrorEvent(BaseModel):

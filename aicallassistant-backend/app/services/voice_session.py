@@ -22,6 +22,7 @@ from app.models.schemas import (
     InterruptEvent,
     StreamErrorEvent,
     TranscriptDeltaEvent,
+    TurnCompleteEvent,
     UpdateSummaryRequest,
 )
 from app.services.database import DatabaseService
@@ -344,6 +345,10 @@ class VoiceSession:
                     # Collect completed turns for persistence
                     self._record_transcript_turn(event.speaker, event.text)
 
+                elif isinstance(event, LiveTurnComplete):
+                    turn_msg = TurnCompleteEvent(timestamp_ms=self._current_elapsed_ms())
+                    await self.websocket.send_text(turn_msg.model_dump_json())
+
                 elif isinstance(event, LiveInterrupted):
                     interrupt_msg = InterruptedEvent()
                     await self.websocket.send_text(interrupt_msg.model_dump_json())
@@ -358,17 +363,20 @@ class VoiceSession:
             await asyncio.sleep(0.05)
 
     def _record_transcript_turn(self, speaker: str, text: str) -> None:
-        text = text.strip()
         if not text:
             return
 
-        # If previous turn was from same speaker, aggregate text
+        # If previous turn was from same speaker, aggregate text cleanly
         if self.transcripts and self.transcripts[-1]["speaker"] == speaker:
-            self.transcripts[-1]["text"] = f"{self.transcripts[-1]['text']} {text}".strip()
+            prev = self.transcripts[-1]["text"]
+            if prev.endswith(" ") or text.startswith(" "):
+                self.transcripts[-1]["text"] = f"{prev}{text}".strip()
+            else:
+                self.transcripts[-1]["text"] = f"{prev} {text}".strip()
         else:
             self.transcripts.append({
                 "speaker": speaker,
-                "text": text,
+                "text": text.strip(),
                 "timestamp_ms": self._current_elapsed_ms(),
                 "sequence_order": self._next_sequence,
             })
@@ -501,6 +509,11 @@ class VoiceSession:
                 call_id=self.call_id,
                 summary=summary_data.get("summary"),
                 duration_seconds=duration,
+                key_facts=summary_data.get("key_facts", []),
+                action_items=summary_data.get("action_items", []),
+                urgency=summary_data.get("urgency"),
+                urgency_explanation=summary_data.get("urgency_explanation"),
+                caller_reason=summary_data.get("caller_reason"),
             )
             await self.websocket.send_text(end_event.model_dump_json())
         except Exception:

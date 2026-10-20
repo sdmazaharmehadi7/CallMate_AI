@@ -9,15 +9,19 @@ from app.core.config import settings
 
 logger = logging.getLogger("aicallassistant.gemini_live")
 
-# System prompt defining the concise, professional AI call-screening persona
-CALL_SCREENING_SYSTEM_INSTRUCTION = """You are CallMate, a voice AI assistant answering an incoming call on behalf of an unavailable person.
-Operating Guidelines:
-1. Identify yourself immediately: Always state clearly upfront that you are CallMate, an AI assistant answering on behalf of the person they are trying to reach.
-2. Be conversational, proactive, and engaging: As soon as the caller answers or pauses, acknowledge what they said and naturally ask relevant follow-up questions (e.g., asking for their name, the reason for calling, details about the meeting/topic, urgency, callback number, or any specific message).
-3. Do not remain silent when the caller finishes speaking: Actively drive the conversation forward by asking one clear, polite question at a time until you have gathered all necessary information.
-4. Keep speaking turns short (1 to 2 sentences per turn), polite, and optimized for natural speech dialogue.
-5. Grounded in facts: Do not invent details or assume availability. If the caller asks for the person, explain they are unavailable and offer to pass on their message.
-6. When the caller has finished giving their information, summarize what was noted, thank them warmly, and confirm the message will be delivered."""
+# System prompt defining the concise, natural AI call-screening persona
+CALL_SCREENING_SYSTEM_INSTRUCTION = """You are CallMate, a polite, conversational voice AI assistant screening a phone call on behalf of an unavailable person.
+
+Operating Principles for Natural Phone Speech:
+1. Role & Identity: Always be upfront that you are CallMate, an AI assistant answering because the person they are trying to reach is currently unavailable.
+2. Natural Phone Style: Speak naturally, warmly, and conversationally, exactly like a helpful human receptionist on a phone call. Use simple spoken language and contractions (e.g., "I'm", "they're", "don't", "can't").
+3. Concise Spoken Turns: Keep almost all responses to 1 or 2 short, crisp sentences. Do NOT speak long paragraphs, lectures, or lists.
+4. One Question at a Time: Ask only one relevant question per turn so the caller can easily respond without feeling overwhelmed.
+5. Acknowledge and Proceed: Acknowledge what the caller said before moving to the next question (e.g., "Got it, thanks.", "Understood.", "Thanks for letting me know.").
+6. Active Listening & Follow-Ups: Proactively collect the caller's name, the reason for calling, details, urgency, and callback number or message. Use prior context rather than asking for information already given.
+7. Strictly Voice-Only Language: Never use markdown formatting, headings, asterisks, bullet points, numbered lists, URLs, or emojis. Output plain, spoken words only.
+8. Grounded in Reality: Never invent details, appointments, or promises. Do not claim you completed an action you cannot do. If the caller asks to speak to the person, reiterate that they are unavailable and offer to take a detailed message.
+9. Polite Closing: If the caller says goodbye, confirms they are done, or ends the inquiry, summarize what you noted, thank them warmly, say goodbye, and conclude the call."""
 
 
 @dataclass
@@ -108,7 +112,7 @@ class GoogleGenAiLiveSession(GeminiLiveSession):
         try:
             if hasattr(self._session, "send_realtime_input"):
                 await self._session.send_realtime_input(
-                    audio=types.Blob(data=pcm_bytes, mime_type="audio/pcm;rate=16000")
+                    media=types.Blob(data=pcm_bytes, mime_type="audio/pcm;rate=16000")
                 )
             else:
                 realtime_input = types.LiveClientRealtimeInput(
@@ -141,60 +145,72 @@ class GoogleGenAiLiveSession(GeminiLiveSession):
 
     async def receive_events(self) -> AsyncGenerator[LiveEvent, None]:
         try:
-            async for message in self._session.receive():
-                if self._closed:
+            while not self._closed:
+                try:
+                    async for message in self._session.receive():
+                        if self._closed:
+                            break
+
+                        server_content = getattr(message, "server_content", None)
+                        if not server_content:
+                            continue
+
+                        # Check for barge-in / interruption
+                        if getattr(server_content, "interrupted", False):
+                            yield LiveInterrupted()
+
+                        # Model turn audio parts
+                        model_turn = getattr(server_content, "model_turn", None)
+                        if model_turn:
+                            parts = getattr(model_turn, "parts", []) or []
+                            for part in parts:
+                                # Extract audio chunk
+                                inline_data = getattr(part, "inline_data", None)
+                                if inline_data and getattr(inline_data, "data", None):
+                                    yield LiveAudioChunk(data=inline_data.data)
+
+                        # Input transcription (caller speech recognized by Gemini STT)
+                        input_tx = getattr(server_content, "input_transcription", None)
+                        if input_tx:
+                            tx_text = getattr(input_tx, "text", "") or ""
+                            if tx_text:
+                                is_final = bool(getattr(input_tx, "finished", False))
+                                yield LiveTranscriptChunk(speaker="caller", text=tx_text, is_final=is_final)
+
+                        # Output transcription (assistant speech recognized by Gemini)
+                        output_tx = getattr(server_content, "output_transcription", None)
+                        if output_tx:
+                            tx_text = getattr(output_tx, "text", "") or ""
+                            if tx_text:
+                                is_final = bool(getattr(output_tx, "finished", False))
+                                yield LiveTranscriptChunk(speaker="assistant", text=tx_text, is_final=is_final)
+                        elif model_turn:
+                            # Fallback text delta only if output_transcription was not sent and part is not a thought
+                            for part in getattr(model_turn, "parts", []) or []:
+                                if not getattr(part, "thought", False):
+                                    text = getattr(part, "text", None)
+                                    if text:
+                                        yield LiveTranscriptChunk(speaker="assistant", text=text, is_final=False)
+
+                        # Turn completion
+                        if getattr(server_content, "turn_complete", False):
+                            yield LiveTurnComplete()
+
+                except asyncio.CancelledError:
                     break
-
-                server_content = getattr(message, "server_content", None)
-                if not server_content:
-                    continue
-
-                # Check for barge-in / interruption
-                if getattr(server_content, "interrupted", False):
-                    yield LiveInterrupted()
-
-                # Model turn audio & text parts
-                model_turn = getattr(server_content, "model_turn", None)
-                if model_turn:
-                    parts = getattr(model_turn, "parts", []) or []
-                    for part in parts:
-                        # Extract audio chunk
-                        inline_data = getattr(part, "inline_data", None)
-                        if inline_data and getattr(inline_data, "data", None):
-                            yield LiveAudioChunk(data=inline_data.data)
-
-                        # Extract text delta
-                        text = getattr(part, "text", None)
-                        if text:
-                            yield LiveTranscriptChunk(speaker="assistant", text=text, is_final=False)
-
-                # Input transcription (caller transcription from Gemini speech-to-text)
-                input_tx = getattr(server_content, "input_transcription", None)
-                if input_tx:
-                    tx_text = getattr(input_tx, "text", "") or ""
-                    if tx_text:
-                        yield LiveTranscriptChunk(speaker="caller", text=tx_text, is_final=True)
-
-                # Output transcription (assistant speech transcript)
-                output_tx = getattr(server_content, "output_transcription", None)
-                if output_tx:
-                    tx_text = getattr(output_tx, "text", "") or ""
-                    if tx_text:
-                        yield LiveTranscriptChunk(speaker="assistant", text=tx_text, is_final=False)
-
-                # Turn completion
-                if getattr(server_content, "turn_complete", False):
-                    yield LiveTurnComplete()
+                except Exception as e:
+                    if self._closed:
+                        break
+                    err_str = str(e)
+                    if "1000" in err_str or "ConnectionClosed" in type(e).__name__:
+                        logger.info("Gemini Live connection closed.")
+                        break
+                    else:
+                        logger.warning("Gemini Live receive stream encountered exception: %s (%s)", type(e).__name__, e)
+                        raise
 
         except asyncio.CancelledError:
             pass
-        except Exception as e:
-            err_str = str(e)
-            if "1000" in err_str or "ConnectionClosed" in type(e).__name__:
-                logger.info("Gemini Live receive stream ended cleanly.")
-            else:
-                logger.warning("Gemini Live receive stream encountered exception: %s (%s)", type(e).__name__, e)
-                raise
 
     async def close(self) -> None:
         self._closed = True
@@ -243,6 +259,7 @@ class DefaultGeminiLiveService(GeminiLiveService):
 
         config = types.LiveConnectConfig(
             response_modalities=[types.Modality.AUDIO],
+            thinking_config=types.ThinkingConfig(thinking_budget=0),
             speech_config=types.SpeechConfig(
                 voice_config=types.VoiceConfig(
                     prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=chosen_voice)
@@ -254,7 +271,9 @@ class DefaultGeminiLiveService(GeminiLiveService):
             realtime_input_config=types.RealtimeInputConfig(
                 automatic_activity_detection=types.AutomaticActivityDetection(
                     disabled=False,
-                    silence_duration_ms=800,
+                    silence_duration_ms=600,
+                    start_of_speech_sensitivity=types.StartSensitivity.START_SENSITIVITY_HIGH,
+                    end_of_speech_sensitivity=types.EndSensitivity.END_SENSITIVITY_HIGH,
                 )
             ),
         )
@@ -295,7 +314,8 @@ class DefaultGeminiLiveService(GeminiLiveService):
         if settings.is_gemini_configured():
             try:
                 client = self._get_client()
-                prompt = f"""Analyze this screened phone call transcript.
+                prompt = f"""You are the CallMate AI Screening Intelligence engine. Analyze this completed phone conversation between a caller and CallMate assistant.
+
 Caller Name: {caller_name or 'Unknown'}
 Caller Number: {caller_number or 'Unknown'}
 
@@ -304,21 +324,28 @@ Transcript:
 
 Return a valid JSON object matching this schema:
 {{
-  "summary": "1-2 sentence concise summary of the call",
+  "summary": "1-2 sentence concise, informative summary of the call",
   "urgency": "low" | "medium" | "high" | "critical",
-  "urgency_explanation": "brief explanation for urgency rating",
-  "caller_reason": "concise description of why caller called",
+  "urgency_explanation": "brief 1-sentence explanation for the urgency rating",
+  "caller_reason": "concise description of why the caller called",
   "uncertainties": "any ambiguous or unverified details, or null",
   "key_facts": ["fact 1", "fact 2"],
   "action_items": ["action item 1", "action item 2"]
-}}"""
+}}
+
+Instructions for action_items:
+- Extract concrete follow-up tasks, commitments, callbacks, reminders, or items requested during the call (e.g., 'Remind user about project meeting tomorrow at 10 AM', 'Send requested invoice to John', 'Bring project report').
+- Include dates and times only when explicitly stated in the conversation.
+- Do NOT generate vague or non-actionable tasks. If no follow-up is needed, return []."""
+
+                summary_model = getattr(settings, "GEMINI_SUMMARY_MODEL", "gemini-2.5-flash")
                 response = await asyncio.wait_for(
                     client.aio.models.generate_content(
-                        model="gemini-3.8-flash",
+                        model=summary_model,
                         contents=prompt,
                         config={"response_mime_type": "application/json"},
                     ),
-                    timeout=10.0,
+                    timeout=8.0,
                 )
                 text = getattr(response, "text", "") or ""
                 parsed = json.loads(text)
@@ -328,8 +355,8 @@ Return a valid JSON object matching this schema:
                     "urgency_explanation": parsed.get("urgency_explanation") or "Automated call analysis.",
                     "caller_reason": parsed.get("caller_reason") or "Inquiry.",
                     "uncertainties": parsed.get("uncertainties"),
-                    "key_facts": parsed.get("key_facts") or [],
-                    "action_items": parsed.get("action_items") or [],
+                    "key_facts": [str(f) for f in parsed.get("key_facts", []) if f],
+                    "action_items": [str(a) for a in parsed.get("action_items", []) if a],
                 }
             except Exception as e:
                 logger.warning("Gemini structured summary failed (%s), using fallback heuristic.", e)

@@ -85,6 +85,11 @@ class DatabaseService(ABC):
         pass
 
     @abstractmethod
+    def list_all_action_items(self, user_id: str) -> List[Dict[str, Any]]:
+        """List all action items across all calls owned by user_id."""
+        pass
+
+    @abstractmethod
     def create_action_item(self, call_id: str, user_id: str, item: CreateActionItemRequest) -> Dict[str, Any]:
         """Create an action item for an owned call."""
         pass
@@ -321,6 +326,12 @@ class InMemoryDatabaseService(DatabaseService):
 
         items = [a for a in self.action_items.values() if a["call_id"] == call_id]
         items.sort(key=lambda a: a["created_at"])
+        return [copy.deepcopy(a) for a in items]
+
+    def list_all_action_items(self, user_id: str) -> List[Dict[str, Any]]:
+        user_call_ids = {c["id"] for c in self.calls.values() if c["user_id"] == user_id}
+        items = [a for a in self.action_items.values() if a["call_id"] in user_call_ids]
+        items.sort(key=lambda a: a["created_at"], reverse=True)
         return [copy.deepcopy(a) for a in items]
 
     def create_action_item(self, call_id: str, user_id: str, item: CreateActionItemRequest) -> Dict[str, Any]:
@@ -665,6 +676,21 @@ class SupabaseDatabaseService(DatabaseService):
             .select("*")
             .eq("call_id", call_id)
             .order("created_at", desc=False)
+        )
+        res = self._safe_execute(q)
+        return res.data or []
+
+    def list_all_action_items(self, user_id: str) -> List[Dict[str, Any]]:
+        calls_q = self._client.table("calls").select("id").eq("user_id", user_id)
+        calls_res = self._safe_execute(calls_q)
+        call_ids = [c["id"] for c in (calls_res.data or [])]
+        if not call_ids:
+            return []
+        q = (
+            self._client.table("action_items")
+            .select("*")
+            .in_("call_id", call_ids)
+            .order("created_at", desc=True)
         )
         res = self._safe_execute(q)
         return res.data or []

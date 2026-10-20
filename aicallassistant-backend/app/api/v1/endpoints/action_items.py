@@ -3,10 +3,29 @@ from fastapi import APIRouter, Depends
 from app.api.deps import get_current_user_id, get_db_service
 from app.core.errors import NotFoundException
 from app.core.utils import validate_uuid
-from app.models.schemas import ActionItem, DeleteResponse, UpdateActionItemRequest
+from app.models.schemas import ActionItem, ActionItemListResponse, DeleteResponse, UpdateActionItemRequest
 from app.services.database import DatabaseService
 
 router = APIRouter(prefix="/action-items", tags=["Action Items"])
+
+
+@router.get(
+    "",
+    response_model=ActionItemListResponse,
+    summary="List all action items for authenticated user",
+)
+async def list_all_action_items(
+    user_id: str = Depends(get_current_user_id),
+    db: DatabaseService = Depends(get_db_service),
+) -> ActionItemListResponse:
+    """
+    Lists all follow-up action items across all screened calls for the current user.
+    """
+    items = db.list_all_action_items(user_id)
+    return ActionItemListResponse(
+        action_items=[ActionItem(**i) for i in items],
+        total=len(items),
+    )
 
 
 @router.patch(

@@ -17,6 +17,7 @@ class Settings(BaseSettings):
         "http://localhost:3000",
         "http://127.0.0.1:8000",
         "http://10.0.2.2:8000",
+        "http://10.136.113.67:8000",
         "http://10.165.44.67:8000",
     ]
 
@@ -30,6 +31,7 @@ class Settings(BaseSettings):
     # Gemini Live API Settings
     GEMINI_API_KEY: str = Field(default="test_placeholder_key")
     GEMINI_MODEL: str = "gemini-2.5-flash-native-audio-latest"
+    GEMINI_SUMMARY_MODEL: str = "gemini-2.5-flash"
     GEMINI_DEFAULT_VOICE: str = "Aoede"
     GEMINI_LIVE_CONNECTION_TIMEOUT_SECONDS: int = 15
     GEMINI_SESSION_MAX_DURATION_SECONDS: int = 900  # Max 15 minutes per session
