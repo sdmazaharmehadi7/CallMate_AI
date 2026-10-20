@@ -55,8 +55,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aicallassistant.app.core.util.DateUtils
+import com.aicallassistant.app.data.audio.LocalRecordingManager
 import com.aicallassistant.app.domain.model.SpeakerType
 import com.aicallassistant.app.domain.model.TranscriptItem
+import com.aicallassistant.app.ui.components.CallRecordingPlayer
 import com.aicallassistant.app.ui.components.DeleteConfirmationDialog
 import com.aicallassistant.app.ui.components.UrgencyBadge
 import com.aicallassistant.app.ui.theme.CallMateBackgroundGradient
@@ -329,101 +331,45 @@ fun CallDetailScreen(
                             }
                         }
 
-                        // Recording Audio Player Card
-                        if (detail.hasRecording) {
+                        // Recording Audio Player Card (Local-first with cloud fallback)
+                        val localRecFile = LocalRecordingManager.getRecordingFile(detail.id)
+                        val hasAnyRecording = localRecFile != null || detail.hasRecording
+
+                        if (hasAnyRecording) {
                             item {
-                                Surface(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(16.dp),
-                                    color = CallMateNavySurface
-                                ) {
-                                    Column(modifier = Modifier.padding(18.dp)) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(Icons.Outlined.Headphones, contentDescription = null, tint = CallMateCyan)
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Text(
-                                                text = "Call Recording",
-                                                fontSize = 16.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = Color.White
-                                            )
-                                        }
-
-                                        Spacer(modifier = Modifier.height(8.dp))
-
-                                        val context = androidx.compose.ui.platform.LocalContext.current
-                                        var isAudioPlaying by remember { mutableStateOf(false) }
-                                        var mediaPlayer by remember { mutableStateOf<android.media.MediaPlayer?>(null) }
-
-                                        androidx.compose.runtime.DisposableEffect(Unit) {
-                                            onDispose {
-                                                mediaPlayer?.release()
-                                                mediaPlayer = null
+                                if (localRecFile != null) {
+                                    CallRecordingPlayer(
+                                        localFile = localRecFile,
+                                        initialDurationSeconds = detail.durationSeconds,
+                                        title = "Call Audio Recording"
+                                    )
+                                } else if (uiState.signedRecordingUrl != null) {
+                                    CallRecordingPlayer(
+                                        localFile = null,
+                                        remoteUrl = uiState.signedRecordingUrl,
+                                        initialDurationSeconds = detail.durationSeconds,
+                                        title = "Cloud Audio Recording"
+                                    )
+                                } else {
+                                    Surface(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(16.dp),
+                                        color = CallMateNavySurface
+                                    ) {
+                                        Column(modifier = Modifier.padding(18.dp)) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(Icons.Outlined.Headphones, contentDescription = null, tint = CallMateCyan)
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Text(
+                                                    text = "Call Recording",
+                                                    fontSize = 16.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = Color.White
+                                                )
                                             }
-                                        }
-
-                                        if (uiState.signedRecordingUrl != null) {
-                                            val signedUrl = uiState.signedRecordingUrl!!
+                                            Spacer(modifier = Modifier.height(8.dp))
                                             Text(
-                                                text = "Recording ready to play (private signed URL):",
-                                                fontSize = 12.sp,
-                                                color = CallMateCyan
-                                            )
-                                            Spacer(modifier = Modifier.height(10.dp))
-                                            Row(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Button(
-                                                    onClick = {
-                                                        if (isAudioPlaying) {
-                                                            mediaPlayer?.pause()
-                                                            isAudioPlaying = false
-                                                        } else {
-                                                            if (mediaPlayer == null) {
-                                                                mediaPlayer = android.media.MediaPlayer().apply {
-                                                                    setDataSource(signedUrl)
-                                                                    setOnPreparedListener { mp ->
-                                                                        mp.start()
-                                                                        isAudioPlaying = true
-                                                                    }
-                                                                    setOnCompletionListener {
-                                                                        isAudioPlaying = false
-                                                                    }
-                                                                    setOnErrorListener { _, _, _ ->
-                                                                        isAudioPlaying = false
-                                                                        true
-                                                                    }
-                                                                    prepareAsync()
-                                                                }
-                                                            } else {
-                                                                mediaPlayer?.start()
-                                                                isAudioPlaying = true
-                                                            }
-                                                        }
-                                                    },
-                                                    colors = ButtonDefaults.buttonColors(
-                                                        containerColor = if (isAudioPlaying) Color(0xFFEF4444) else CallMateCyan,
-                                                        contentColor = if (isAudioPlaying) Color.White else CallMateNavyBg
-                                                    ),
-                                                    shape = RoundedCornerShape(8.dp)
-                                                ) {
-                                                    Icon(
-                                                        imageVector = if (isAudioPlaying) Icons.Default.Delete else Icons.Default.PlayArrow,
-                                                        contentDescription = null,
-                                                        modifier = Modifier.size(18.dp)
-                                                    )
-                                                    Spacer(modifier = Modifier.width(6.dp))
-                                                    Text(
-                                                        text = if (isAudioPlaying) "Pause Audio" else "Play Recording",
-                                                        fontWeight = FontWeight.Bold
-                                                    )
-                                                }
-                                            }
-                                        } else {
-                                            Text(
-                                                text = "Private recording stored securely in Supabase Storage bucket.",
+                                                text = "Cloud recording available. Tap below to fetch authenticated playback URL.",
                                                 fontSize = 12.sp,
                                                 color = Color(0xFF94A3B8)
                                             )
@@ -442,18 +388,17 @@ fun CallDetailScreen(
                                                 } else {
                                                     Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
                                                     Spacer(modifier = Modifier.width(6.dp))
-                                                    Text("Load Recording Player", fontWeight = FontWeight.Bold)
+                                                    Text("Load Cloud Recording", fontWeight = FontWeight.Bold)
                                                 }
                                             }
-                                        }
-
-                                        if (uiState.recordingErrorMessage != null) {
-                                            Spacer(modifier = Modifier.height(8.dp))
-                                            Text(
-                                                text = uiState.recordingErrorMessage!!,
-                                                color = Color(0xFFFCA5A5),
-                                                fontSize = 12.sp
-                                            )
+                                            if (uiState.recordingErrorMessage != null) {
+                                                Spacer(modifier = Modifier.height(8.dp))
+                                                Text(
+                                                    text = uiState.recordingErrorMessage!!,
+                                                    color = Color(0xFFFCA5A5),
+                                                    fontSize = 12.sp
+                                                )
+                                            }
                                         }
                                     }
                                 }

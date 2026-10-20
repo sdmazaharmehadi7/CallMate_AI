@@ -11,6 +11,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicBoolean
@@ -23,8 +24,10 @@ interface AudioPlayerManager {
     fun stop()
     fun release()
     fun isPlaying(): Boolean
+    fun setOnPlaybackCompleteListener(listener: () -> Unit)
 }
 
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class DefaultAudioPlayerManager(
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO)
 ) : AudioPlayerManager {
@@ -38,8 +41,14 @@ class DefaultAudioPlayerManager(
 
     private var audioTrack: AudioTrack? = null
     private var playbackJob: Job? = null
+    private var completeDebounceJob: Job? = null
+    private var onPlaybackCompleteListener: (() -> Unit)? = null
     private val isRunning = AtomicBoolean(false)
     private val audioQueue = Channel<ByteArray>(Channel.UNLIMITED)
+
+    override fun setOnPlaybackCompleteListener(listener: () -> Unit) {
+        this.onPlaybackCompleteListener = listener
+    }
 
     override fun start(): Result<Unit> {
         if (isRunning.get()) {
@@ -108,6 +117,7 @@ class DefaultAudioPlayerManager(
                 }
 
                 if (!isRunning.get()) break
+                completeDebounceJob?.cancel()
 
                 val currentTrack = audioTrack ?: break
                 try {
@@ -124,6 +134,16 @@ class DefaultAudioPlayerManager(
                 } catch (e: Exception) {
                     Log.w(TAG, "AudioTrack write error: ${e.message}")
                 }
+
+                if (audioQueue.isEmpty) {
+                    completeDebounceJob?.cancel()
+                    completeDebounceJob = scope.launch(Dispatchers.IO) {
+                        delay(280) // Wait for trailing audio frames in hardware buffer to complete
+                        if (audioQueue.isEmpty && isRunning.get()) {
+                            onPlaybackCompleteListener?.invoke()
+                        }
+                    }
+                }
             }
         }
 
@@ -133,6 +153,7 @@ class DefaultAudioPlayerManager(
 
     override fun playChunk(pcmBytes: ByteArray) {
         if (!isRunning.get() || pcmBytes.isEmpty()) return
+        completeDebounceJob?.cancel()
         audioQueue.trySend(pcmBytes)
     }
 
@@ -150,6 +171,8 @@ class DefaultAudioPlayerManager(
 
     override fun flushAndResume() {
         if (!isRunning.get()) return
+        completeDebounceJob?.cancel()
+        completeDebounceJob = null
         try {
             // Drain in-memory queue
             while (audioQueue.tryReceive().isSuccess) {
@@ -170,6 +193,8 @@ class DefaultAudioPlayerManager(
 
     override fun stop() {
         if (!isRunning.getAndSet(false)) return
+        completeDebounceJob?.cancel()
+        completeDebounceJob = null
         playbackJob?.cancel()
         playbackJob = null
 

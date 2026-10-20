@@ -106,6 +106,24 @@ class DefaultAudioCaptureManager(
 
         audioRecord = record
 
+        // Attach hardware acoustic echo cancellation and noise suppressor if available
+        try {
+            if (android.media.audiofx.AcousticEchoCanceler.isAvailable()) {
+                android.media.audiofx.AcousticEchoCanceler.create(record.audioSessionId)?.apply {
+                    enabled = true
+                    Log.i(TAG, "Hardware AcousticEchoCanceler enabled for session ${record.audioSessionId}")
+                }
+            }
+            if (android.media.audiofx.NoiseSuppressor.isAvailable()) {
+                android.media.audiofx.NoiseSuppressor.create(record.audioSessionId)?.apply {
+                    enabled = true
+                    Log.i(TAG, "Hardware NoiseSuppressor enabled for session ${record.audioSessionId}")
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed enabling hardware audio effects: ${e.message}")
+        }
+
         // 4. Start recording
         try {
             record.startRecording()

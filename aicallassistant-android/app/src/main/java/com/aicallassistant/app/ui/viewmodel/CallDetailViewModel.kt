@@ -2,7 +2,10 @@ package com.aicallassistant.app.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.aicallassistant.app.core.event.AppCallEvent
+import com.aicallassistant.app.core.event.CallEventBus
 import com.aicallassistant.app.core.network.NetworkResult
+import com.aicallassistant.app.data.audio.LocalRecordingManager
 import com.aicallassistant.app.data.repository.ActionItemRepository
 import com.aicallassistant.app.data.repository.CallRepository
 import com.aicallassistant.app.data.repository.DefaultActionItemRepository
@@ -78,6 +81,8 @@ class CallDetailViewModel(
         viewModelScope.launch {
             when (val res = callRepository.deleteCall(callId)) {
                 is NetworkResult.Success -> {
+                    LocalRecordingManager.deleteRecording(callId)
+                    CallEventBus.emit(AppCallEvent.CallDeleted(callId))
                     _uiState.value = _uiState.value.copy(isDeleted = true)
                     onDeleted()
                 }

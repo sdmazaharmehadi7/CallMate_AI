@@ -98,7 +98,8 @@ class SimulateCallViewModelTest {
             audioCaptureManager = audioCaptureManager,
             audioPlayerManager = audioPlayerManager,
             tokenProvider = { token },
-            wsUrlProvider = { "ws://10.0.2.2:8000" }
+            wsUrlProvider = { "ws://10.0.2.2:8000" },
+            ioDispatcher = testDispatcher
         )
     }
 
@@ -231,7 +232,11 @@ class SimulateCallViewModelTest {
             VoiceServerEvent.CallEnded(
                 callId = "call-12345",
                 summary = "Courier arrived at building gate.",
-                durationSeconds = 42
+                durationSeconds = 42,
+                keyFacts = listOf("Package from Amazon"),
+                actionItems = listOf("Meet courier at gate"),
+                urgency = "medium",
+                urgencyExplanation = "Requires immediate gate code"
             )
         )
         testDispatcher.scheduler.advanceUntilIdle()
@@ -242,6 +247,8 @@ class SimulateCallViewModelTest {
         assertEquals(42, endedState.durationSeconds)
         assertEquals(UrgencyLevel.MEDIUM, endedState.callUrgency)
         assertEquals("Requires immediate gate code", endedState.urgencyExplanation)
+        assertEquals(listOf("Package from Amazon"), endedState.keyFacts)
+        assertEquals(listOf("Meet courier at gate"), endedState.actionItems)
     }
 
     @Test

@@ -32,7 +32,7 @@ android {
                 FileInputStream(localFile).use { load(it) }
             }
         }
-        val defaultBackend = localProperties.getProperty("backend.url") ?: "http://10.165.44.67:8000"
+        val defaultBackend = localProperties.getProperty("backend.url") ?: "http://10.136.113.67:8000"
         val supabaseProjectUrl = localProperties.getProperty("supabase.url") ?: "https://iacddfhvbippjjtsdtyq.supabase.co"
         val supabaseAnonKey = localProperties.getProperty("supabase.publishable.key") ?: "sb_publishable_i0cNC6ZXvCjqwN-IgBlv5Q_a3FxFBmH"
 

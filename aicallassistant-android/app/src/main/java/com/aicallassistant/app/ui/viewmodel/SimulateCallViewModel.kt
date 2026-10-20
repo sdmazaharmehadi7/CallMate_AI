@@ -24,12 +24,19 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
+import com.aicallassistant.app.core.event.AppCallEvent
+import com.aicallassistant.app.core.event.CallEventBus
+import com.aicallassistant.app.data.audio.AudioResampler
+import com.aicallassistant.app.data.audio.LocalRecordingManager
+
 enum class CallSessionState {
     IDLE,
     CONNECTING,
     LISTENING,
+    PROCESSING,
     AI_SPEAKING,
     RECONNECTING,
+    PROCESSING_RESULTS,
     ENDED,
     ERROR
 }
@@ -54,6 +61,9 @@ data class SimulateCallUiState(
     val urgencyExplanation: String? = null,
     val durationSeconds: Int = 0,
     val keyFacts: List<String> = emptyList(),
+    val actionItems: List<String> = emptyList(),
+    val localRecordingPath: String? = null,
+    val isRecordingReady: Boolean = false,
     val errorMessage: String? = null
 )
 
@@ -63,7 +73,8 @@ class SimulateCallViewModel(
     private var audioCaptureManager: AudioCaptureManager? = null,
     private val audioPlayerManager: AudioPlayerManager = DefaultAudioPlayerManager(),
     private val tokenProvider: () -> String? = { SupabaseManager.getAccessToken() },
-    private val wsUrlProvider: () -> String = { AppConfig.getActiveWebSocketUrl() }
+    private val wsUrlProvider: () -> String = { AppConfig.getActiveWebSocketUrl() },
+    private val ioDispatcher: kotlinx.coroutines.CoroutineDispatcher = kotlinx.coroutines.Dispatchers.IO
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SimulateCallUiState())
@@ -143,10 +154,18 @@ class SimulateCallViewModel(
                     val result = callResponse.data
                     _uiState.value = _uiState.value.copy(callResult = result)
 
-                    // 2. Start audio player
+                    // 2. Initialize local-first audio recording session on device
+                    LocalRecordingManager.startRecording(result.callId)
+
+                    // 3. Start audio player and register completion listener
+                    audioPlayerManager.setOnPlaybackCompleteListener {
+                        if (_uiState.value.sessionState == CallSessionState.AI_SPEAKING) {
+                            _uiState.value = _uiState.value.copy(sessionState = CallSessionState.LISTENING)
+                        }
+                    }
                     audioPlayerManager.start()
 
-                    // 3. Connect WebSocket stream to backend
+                    // 4. Connect WebSocket stream to backend
                     val wsBaseUrl = wsUrlProvider()
                     voiceSessionClient.connect(
                         callId = result.callId,
@@ -156,12 +175,20 @@ class SimulateCallViewModel(
                         onError = { throwable -> handleVoiceError(throwable) }
                     )
 
-                    // 4. Start audio capture
+                    // 5. Start audio capture with acoustic echo suppression and local recording
                     val captureResult = audioCaptureManager?.startCapture { pcmChunk ->
+                        // Record caller speech locally into full conversation audio file
+                        LocalRecordingManager.appendAudio(result.callId, pcmChunk)
+
                         if (voiceSessionClient.isConnected()) {
-                            val elapsed = System.currentTimeMillis() - sessionStartTimeMs
-                            viewModelScope.launch {
-                                voiceSessionClient.sendAudio(pcmChunk, elapsed)
+                            val currentState = _uiState.value.sessionState
+                            val isMuted = _uiState.value.isMuted
+                            // Prevent echo feedback: do not send mic frames while AI speaks out of loudspeaker
+                            if (currentState != CallSessionState.AI_SPEAKING && !isMuted) {
+                                val elapsed = System.currentTimeMillis() - sessionStartTimeMs
+                                viewModelScope.launch {
+                                    voiceSessionClient.sendAudio(pcmChunk, elapsed)
+                                }
                             }
                         }
                     }
@@ -196,6 +223,21 @@ class SimulateCallViewModel(
                 if (_uiState.value.sessionState != CallSessionState.AI_SPEAKING) {
                     _uiState.value = _uiState.value.copy(sessionState = CallSessionState.AI_SPEAKING)
                 }
+
+                // Record assistant audio locally (resample 24kHz -> 16kHz)
+                val callId = _uiState.value.callResult?.callId
+                if (callId != null) {
+                    try {
+                        val rawAiPcm = android.util.Base64.decode(event.data, android.util.Base64.DEFAULT)
+                        val resampledAi = AudioResampler.resample24kTo16k(rawAiPcm)
+                        LocalRecordingManager.appendAudio(callId, resampledAi)
+                    } catch (_: Exception) {}
+                }
+            }
+            is VoiceServerEvent.TurnComplete -> {
+                if (_uiState.value.sessionState == CallSessionState.AI_SPEAKING && !audioPlayerManager.isPlaying()) {
+                    _uiState.value = _uiState.value.copy(sessionState = CallSessionState.LISTENING)
+                }
             }
             is VoiceServerEvent.TranscriptDelta -> {
                 val speakerType = SpeakerType.fromValue(event.speaker)
@@ -203,25 +245,26 @@ class SimulateCallViewModel(
                 val lastTurn = turns.lastOrNull()
 
                 if (lastTurn != null && lastTurn.speaker == speakerType && !lastTurn.isFinal) {
+                    val glue = if (lastTurn.text.endsWith(" ") || event.text.startsWith(" ")) "" else " "
                     turns[turns.lastIndex] = lastTurn.copy(
-                        text = lastTurn.text + event.text,
+                        text = (lastTurn.text + glue + event.text).trim(),
                         isFinal = event.isFinal
                     )
                 } else {
                     turns.add(
                         LiveTranscriptTurn(
                             speaker = speakerType,
-                            text = event.text,
+                            text = event.text.trim(),
                             isFinal = event.isFinal,
                             timestampMs = event.timestampMs
                         )
                     )
                 }
 
-                val nextState = if (speakerType == SpeakerType.ASSISTANT) {
-                    CallSessionState.AI_SPEAKING
-                } else {
-                    CallSessionState.LISTENING
+                val nextState = when {
+                    speakerType == SpeakerType.ASSISTANT -> CallSessionState.AI_SPEAKING
+                    event.isFinal -> CallSessionState.PROCESSING
+                    else -> _uiState.value.sessionState
                 }
 
                 _uiState.value = _uiState.value.copy(
@@ -235,13 +278,23 @@ class SimulateCallViewModel(
             }
             is VoiceServerEvent.CallEnded -> {
                 stopAudio()
+                val callId = event.callId
+                val localFile = LocalRecordingManager.getRecordingFile(callId)
                 _uiState.value = _uiState.value.copy(
                     sessionState = CallSessionState.ENDED,
-                    callSummary = event.summary,
-                    durationSeconds = event.durationSeconds
+                    callSummary = event.summary ?: _uiState.value.callSummary,
+                    callUrgency = event.urgency?.let { UrgencyLevel.fromValue(it) } ?: _uiState.value.callUrgency,
+                    urgencyExplanation = event.urgencyExplanation ?: _uiState.value.urgencyExplanation,
+                    durationSeconds = if (event.durationSeconds > 0) event.durationSeconds else _uiState.value.durationSeconds,
+                    keyFacts = if (event.keyFacts.isNotEmpty()) event.keyFacts else _uiState.value.keyFacts,
+                    actionItems = if (event.actionItems.isNotEmpty()) event.actionItems else _uiState.value.actionItems,
+                    localRecordingPath = localFile?.absolutePath,
+                    isRecordingReady = localFile != null
                 )
-                // Fetch saved summary facts and urgency from backend database
-                fetchCompletedCallDetails(event.callId)
+                // Real-time notification across screens
+                CallEventBus.emit(AppCallEvent.CallCompleted(callId))
+                // Reconcile saved summary facts from database
+                fetchCompletedCallDetails(callId)
             }
             is VoiceServerEvent.StreamError -> {
                 stopAudioAndDisconnect()
@@ -256,7 +309,7 @@ class SimulateCallViewModel(
     }
 
     private fun handleVoiceError(throwable: Throwable) {
-        if (_uiState.value.sessionState != CallSessionState.ENDED) {
+        if (_uiState.value.sessionState != CallSessionState.ENDED && _uiState.value.sessionState != CallSessionState.PROCESSING_RESULTS) {
             stopAudio()
             _uiState.value = _uiState.value.copy(
                 sessionState = CallSessionState.ERROR,
@@ -267,24 +320,38 @@ class SimulateCallViewModel(
 
     private fun fetchCompletedCallDetails(callId: String) {
         viewModelScope.launch {
-            when (val detailResult = callRepository.getCallDetail(callId)) {
-                is NetworkResult.Success -> {
-                    val detail = detailResult.data
-                    _uiState.value = _uiState.value.copy(
-                        callSummary = detail.summary ?: _uiState.value.callSummary,
-                        callUrgency = detail.urgency,
-                        urgencyExplanation = detail.urgencyExplanation,
-                        durationSeconds = if (detail.durationSeconds > 0) detail.durationSeconds else _uiState.value.durationSeconds,
-                        keyFacts = detail.keyFacts
-                    )
+            for (attempt in 1..3) {
+                when (val detailResult = callRepository.getCallDetail(callId)) {
+                    is NetworkResult.Success -> {
+                        val detail = detailResult.data
+                        val hasSummary = !detail.summary.isNullOrBlank()
+                        val localFile = LocalRecordingManager.getRecordingFile(callId)
+                        _uiState.value = _uiState.value.copy(
+                            callSummary = detail.summary ?: _uiState.value.callSummary,
+                            callUrgency = detail.urgency,
+                            urgencyExplanation = detail.urgencyExplanation ?: _uiState.value.urgencyExplanation,
+                            durationSeconds = if (detail.durationSeconds > 0) detail.durationSeconds else _uiState.value.durationSeconds,
+                            keyFacts = if (detail.keyFacts.isNotEmpty()) detail.keyFacts else _uiState.value.keyFacts,
+                            actionItems = if (detail.actionItems.isNotEmpty()) detail.actionItems.map { it.task } else _uiState.value.actionItems,
+                            localRecordingPath = localFile?.absolutePath ?: _uiState.value.localRecordingPath,
+                            isRecordingReady = localFile != null || _uiState.value.isRecordingReady
+                        )
+                        if (hasSummary || attempt == 3) {
+                            break
+                        }
+                    }
+                    else -> {
+                        if (attempt == 3) break
+                    }
                 }
-                else -> {}
+                delay(1000)
             }
         }
     }
 
     fun endCall() {
-        if (_uiState.value.sessionState == CallSessionState.ENDED || _uiState.value.sessionState == CallSessionState.IDLE) {
+        val state = _uiState.value.sessionState
+        if (state == CallSessionState.ENDED || state == CallSessionState.IDLE || state == CallSessionState.PROCESSING_RESULTS) {
             return
         }
 
@@ -293,12 +360,26 @@ class SimulateCallViewModel(
         // Stop capturing immediately so no further microphone frames are sent
         audioCaptureManager?.stopCapture()
 
+        // Give immediate visual feedback that call is ending and processing results
+        _uiState.value = _uiState.value.copy(sessionState = CallSessionState.PROCESSING_RESULTS)
+
         endCallJob?.cancel()
         endCallJob = viewModelScope.launch {
+            // Finalize local audio recording in background
+            if (callId != null) {
+                val recFile = LocalRecordingManager.finalizeRecording(callId, ioDispatcher)
+                if (recFile != null) {
+                    _uiState.value = _uiState.value.copy(
+                        localRecordingPath = recFile.absolutePath,
+                        isRecordingReady = true
+                    )
+                }
+            }
+
             if (voiceSessionClient.isConnected()) {
                 voiceSessionClient.sendEndCall()
-                // Wait briefly (up to 3s) for server to finish persisting summary & return CallEnded
-                withTimeoutOrNull(3000) {
+                // Wait up to 12s for server to finish persisting summary & return CallEnded
+                withTimeoutOrNull(12000) {
                     while (voiceSessionClient.isConnected() && _uiState.value.sessionState != CallSessionState.ENDED) {
                         delay(100)
                     }
@@ -308,8 +389,14 @@ class SimulateCallViewModel(
             stopAudioAndDisconnect()
 
             if (_uiState.value.sessionState != CallSessionState.ENDED) {
-                _uiState.value = _uiState.value.copy(sessionState = CallSessionState.ENDED)
+                val localFile = if (callId != null) LocalRecordingManager.getRecordingFile(callId) else null
+                _uiState.value = _uiState.value.copy(
+                    sessionState = CallSessionState.ENDED,
+                    localRecordingPath = localFile?.absolutePath ?: _uiState.value.localRecordingPath,
+                    isRecordingReady = localFile != null || _uiState.value.isRecordingReady
+                )
                 if (callId != null) {
+                    CallEventBus.emit(AppCallEvent.CallCompleted(callId))
                     fetchCompletedCallDetails(callId)
                 }
             }

@@ -47,12 +47,21 @@ sealed class VoiceServerEvent {
         val timestampMs: Long
     ) : VoiceServerEvent()
 
+    data class TurnComplete(
+        val timestampMs: Long
+    ) : VoiceServerEvent()
+
     object Interrupted : VoiceServerEvent()
 
     data class CallEnded(
         val callId: String,
         val summary: String?,
-        val durationSeconds: Int
+        val durationSeconds: Int,
+        val keyFacts: List<String> = emptyList(),
+        val actionItems: List<String> = emptyList(),
+        val urgency: String? = null,
+        val urgencyExplanation: String? = null,
+        val callerReason: String? = null
     ) : VoiceServerEvent()
 
     data class StreamError(
@@ -98,12 +107,32 @@ object VoiceEventParser {
                         timestampMs = timestampMs
                     )
                 }
+                "turn_complete" -> {
+                    val timestampMs = root["timestamp_ms"]?.jsonPrimitive?.longOrNull ?: 0L
+                    VoiceServerEvent.TurnComplete(timestampMs = timestampMs)
+                }
                 "interrupted" -> VoiceServerEvent.Interrupted
                 "call_ended" -> {
                     val callId = root["call_id"]?.jsonPrimitive?.contentOrNull.orEmpty()
                     val summary = root["summary"]?.jsonPrimitive?.contentOrNull
                     val duration = root["duration_seconds"]?.jsonPrimitive?.intOrNull ?: 0
-                    VoiceServerEvent.CallEnded(callId = callId, summary = summary, durationSeconds = duration)
+                    val keyFacts = (root["key_facts"] as? kotlinx.serialization.json.JsonArray)
+                        ?.mapNotNull { it.jsonPrimitive.contentOrNull } ?: emptyList()
+                    val actionItems = (root["action_items"] as? kotlinx.serialization.json.JsonArray)
+                        ?.mapNotNull { it.jsonPrimitive.contentOrNull } ?: emptyList()
+                    val urgency = root["urgency"]?.jsonPrimitive?.contentOrNull
+                    val urgencyExplanation = root["urgency_explanation"]?.jsonPrimitive?.contentOrNull
+                    val callerReason = root["caller_reason"]?.jsonPrimitive?.contentOrNull
+                    VoiceServerEvent.CallEnded(
+                        callId = callId,
+                        summary = summary,
+                        durationSeconds = duration,
+                        keyFacts = keyFacts,
+                        actionItems = actionItems,
+                        urgency = urgency,
+                        urgencyExplanation = urgencyExplanation,
+                        callerReason = callerReason
+                    )
                 }
                 "error" -> {
                     val code = root["code"]?.jsonPrimitive?.contentOrNull ?: "UNKNOWN_ERROR"

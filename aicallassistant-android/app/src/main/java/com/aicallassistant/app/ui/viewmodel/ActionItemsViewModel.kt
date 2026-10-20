@@ -2,6 +2,8 @@ package com.aicallassistant.app.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.aicallassistant.app.core.event.AppCallEvent
+import com.aicallassistant.app.core.event.CallEventBus
 import com.aicallassistant.app.core.network.NetworkResult
 import com.aicallassistant.app.data.repository.ActionItemRepository
 import com.aicallassistant.app.data.repository.CallRepository
@@ -29,6 +31,15 @@ class ActionItemsViewModel(
 
     init {
         loadActionItems()
+        viewModelScope.launch {
+            CallEventBus.events.collect { event ->
+                when (event) {
+                    is AppCallEvent.CallCompleted, is AppCallEvent.CallDeleted, is AppCallEvent.ActionItemUpdated -> {
+                        loadActionItems()
+                    }
+                }
+            }
+        }
     }
 
     fun loadActionItems() {

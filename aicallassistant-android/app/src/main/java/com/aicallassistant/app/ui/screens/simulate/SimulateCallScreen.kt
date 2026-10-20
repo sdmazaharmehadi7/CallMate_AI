@@ -84,6 +84,8 @@ import com.aicallassistant.app.R
 import com.aicallassistant.app.data.audio.DefaultAudioCaptureManager
 import com.aicallassistant.app.domain.model.SpeakerType
 import com.aicallassistant.app.domain.model.UrgencyLevel
+import com.aicallassistant.app.data.audio.LocalRecordingManager
+import com.aicallassistant.app.ui.components.CallRecordingPlayer
 import com.aicallassistant.app.ui.components.UrgencyBadge
 import com.aicallassistant.app.ui.theme.CallMateBackgroundGradient
 import com.aicallassistant.app.ui.theme.CallMateCyan
@@ -419,8 +421,9 @@ fun SimulateCallScreen(
                 }
             }
 
-            // ACTIVE CALL STATES: LISTENING, AI_SPEAKING, RECONNECTING
+            // ACTIVE CALL STATES: LISTENING, PROCESSING, AI_SPEAKING, RECONNECTING
             if (uiState.sessionState == CallSessionState.LISTENING ||
+                uiState.sessionState == CallSessionState.PROCESSING ||
                 uiState.sessionState == CallSessionState.AI_SPEAKING ||
                 uiState.sessionState == CallSessionState.RECONNECTING
             ) {
@@ -577,6 +580,42 @@ fun SimulateCallScreen(
                 }
             }
 
+            // PROCESSING RESULTS STATE
+            if (uiState.sessionState == CallSessionState.PROCESSING_RESULTS) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(18.dp),
+                    color = CallMateNavySurface
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(28.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        CircularProgressIndicator(
+                            color = CallMateCyan,
+                            strokeWidth = 3.dp,
+                            modifier = Modifier.size(48.dp)
+                        )
+                        Spacer(modifier = Modifier.height(18.dp))
+                        Text(
+                            text = "Finalizing Call Analysis...",
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "CallMate is generating the AI call summary, extracting key facts, actionable tasks, and finalizing local recording.",
+                            fontSize = 13.sp,
+                            color = Color(0xFF94A3B8),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            }
+
             // ENDED STATE
             if (uiState.sessionState == CallSessionState.ENDED) {
                 Surface(
@@ -675,6 +714,69 @@ fun SimulateCallScreen(
                                     }
                                 }
                             }
+                        }
+
+                        // Extracted Follow-up Tasks / Action Items Card
+                        if (uiState.actionItems.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(14.dp),
+                                color = CallMateNavyElevated
+                            ) {
+                                Column(modifier = Modifier.padding(14.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Check,
+                                            contentDescription = null,
+                                            tint = CallMateCyan,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = "FOLLOW-UP ACTION ITEMS",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = CallMateCyan
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    uiState.actionItems.forEach { task ->
+                                        Row(
+                                            modifier = Modifier.padding(vertical = 3.dp),
+                                            verticalAlignment = Alignment.Top
+                                        ) {
+                                            Text(
+                                                text = "✓",
+                                                color = CallMateCyan,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 12.sp
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(
+                                                text = task,
+                                                fontSize = 13.sp,
+                                                color = Color.White
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Local Audio Recording Player
+                        val recordingCallId = uiState.callResult?.callId
+                        val localRecFile = recordingCallId?.let { LocalRecordingManager.getRecordingFile(it) }
+                        if (localRecFile != null || uiState.isRecordingReady) {
+                            Spacer(modifier = Modifier.height(14.dp))
+                            CallRecordingPlayer(
+                                localFile = localRecFile,
+                                initialDurationSeconds = uiState.durationSeconds,
+                                title = "Call Recording (On Device)"
+                            )
                         }
 
                         Spacer(modifier = Modifier.height(16.dp))
@@ -781,6 +883,7 @@ private fun CallMatePulseOrb(state: CallSessionState, isMuted: Boolean) {
     val orbColor = when {
         isMuted -> Color(0xFFEF4444)
         state == CallSessionState.AI_SPEAKING -> CallMateCyan
+        state == CallSessionState.PROCESSING -> Color(0xFFA855F7)
         state == CallSessionState.RECONNECTING -> Color(0xFFF59E0B)
         else -> Color(0xFF38BDF8)
     }
@@ -788,7 +891,7 @@ private fun CallMatePulseOrb(state: CallSessionState, isMuted: Boolean) {
     Box(
         modifier = Modifier
             .size(90.dp)
-            .scale(if (state == CallSessionState.AI_SPEAKING || state == CallSessionState.LISTENING) pulseScale else 1f),
+            .scale(if (state == CallSessionState.AI_SPEAKING || state == CallSessionState.LISTENING || state == CallSessionState.PROCESSING) pulseScale else 1f),
         contentAlignment = Alignment.Center
     ) {
         Box(
@@ -814,6 +917,7 @@ private fun CallMatePulseOrb(state: CallSessionState, isMuted: Boolean) {
                 imageVector = when {
                     isMuted -> Icons.Default.MicOff
                     state == CallSessionState.AI_SPEAKING -> Icons.AutoMirrored.Filled.VolumeUp
+                    state == CallSessionState.PROCESSING -> Icons.Default.SmartToy
                     else -> Icons.Default.Mic
                 },
                 contentDescription = null,
@@ -829,6 +933,7 @@ private fun CallMateStatusPill(state: CallSessionState, isMuted: Boolean) {
     val (bgColor, textColor, icon, label) = when {
         isMuted -> Quadruple(Color(0xFF7F1D1D), Color(0xFFFECACA), Icons.Default.MicOff, "Muted")
         state == CallSessionState.AI_SPEAKING -> Quadruple(CallMateCyan.copy(alpha = 0.2f), CallMateCyan, Icons.AutoMirrored.Filled.VolumeUp, "AI Speaking")
+        state == CallSessionState.PROCESSING -> Quadruple(Color(0xFF581C87), Color(0xFFE9D5FF), Icons.Default.SmartToy, "Thinking...")
         state == CallSessionState.RECONNECTING -> Quadruple(Color(0xFF78350F), Color(0xFFFDE68A), Icons.Outlined.Warning, "Reconnecting")
         else -> Quadruple(Color(0xFF065F46), Color(0xFFA7F3D0), Icons.Default.Mic, "Listening")
     }

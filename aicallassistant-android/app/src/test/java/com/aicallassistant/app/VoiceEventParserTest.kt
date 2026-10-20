@@ -50,13 +50,17 @@ class VoiceEventParserTest {
 
     @Test
     fun testParseCallEnded() {
-        val json = """{"event":"call_ended","call_id":"c123","summary":"Courier delivered food.","duration_seconds":42}"""
+        val json = """{"event":"call_ended","call_id":"c123","summary":"Courier delivered food.","duration_seconds":42,"key_facts":["Left at doorstep"],"action_items":["Collect package"],"urgency":"low","urgency_explanation":"Food arrived"}"""
         val event = VoiceEventParser.parse(json)
         assertTrue(event is VoiceServerEvent.CallEnded)
         val ended = event as VoiceServerEvent.CallEnded
         assertEquals("c123", ended.callId)
         assertEquals("Courier delivered food.", ended.summary)
         assertEquals(42, ended.durationSeconds)
+        assertEquals(listOf("Left at doorstep"), ended.keyFacts)
+        assertEquals(listOf("Collect package"), ended.actionItems)
+        assertEquals("low", ended.urgency)
+        assertEquals("Food arrived", ended.urgencyExplanation)
     }
 
     @Test

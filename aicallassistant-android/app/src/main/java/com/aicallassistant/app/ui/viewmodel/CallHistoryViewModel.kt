@@ -2,6 +2,8 @@ package com.aicallassistant.app.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.aicallassistant.app.core.event.AppCallEvent
+import com.aicallassistant.app.core.event.CallEventBus
 import com.aicallassistant.app.core.network.NetworkResult
 import com.aicallassistant.app.data.repository.CallRepository
 import com.aicallassistant.app.data.repository.DefaultCallRepository
@@ -34,6 +36,16 @@ class CallHistoryViewModel(
 
     init {
         loadCalls(reset = true)
+        viewModelScope.launch {
+            CallEventBus.events.collect { event ->
+                when (event) {
+                    is AppCallEvent.CallCompleted, is AppCallEvent.CallDeleted -> {
+                        loadCalls(reset = true)
+                    }
+                    else -> {}
+                }
+            }
+        }
     }
 
     fun onSearchQueryChange(query: String) {
