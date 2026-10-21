@@ -11,6 +11,7 @@ import com.aicallassistant.app.data.repository.CallRepository
 import com.aicallassistant.app.data.repository.DefaultActionItemRepository
 import com.aicallassistant.app.data.repository.DefaultCallRepository
 import com.aicallassistant.app.domain.model.CallDetail
+import com.aicallassistant.app.domain.model.CallItem
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,6 +20,8 @@ import kotlinx.coroutines.launch
 data class CallDetailUiState(
     val isLoading: Boolean = true,
     val callDetail: CallDetail? = null,
+    val callerCalls: List<CallItem> = emptyList(),
+    val selectedCallId: String = "",
     val signedRecordingUrl: String? = null,
     val isLoadingRecording: Boolean = false,
     val recordingErrorMessage: String? = null,
@@ -32,23 +35,34 @@ class CallDetailViewModel(
     private val actionItemRepository: ActionItemRepository = DefaultActionItemRepository()
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(CallDetailUiState(isLoading = true))
+    private var currentCallId: String = callId
+    private val _uiState = MutableStateFlow(CallDetailUiState(isLoading = true, selectedCallId = callId))
     val uiState: StateFlow<CallDetailUiState> = _uiState.asStateFlow()
 
     init {
-        loadCallDetail()
+        loadCallDetail(callId)
     }
 
-    fun loadCallDetail() {
+    fun selectSession(newCallId: String) {
+        currentCallId = newCallId
+        _uiState.value = _uiState.value.copy(selectedCallId = newCallId)
+        loadCallDetail(newCallId)
+    }
+
+    fun loadCallDetail(callIdToLoad: String = currentCallId) {
         _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
         viewModelScope.launch {
-            when (val res = callRepository.getCallDetail(callId)) {
+            when (val res = callRepository.getCallDetail(callIdToLoad)) {
                 is NetworkResult.Success -> {
+                    val detail = res.data
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        callDetail = res.data,
+                        callDetail = detail,
+                        selectedCallId = callIdToLoad,
                         errorMessage = null
                     )
+                    // Fetch other calls from this caller to group into WhatsApp thread
+                    fetchCallerHistory(detail.callerNumber)
                 }
                 is NetworkResult.Error -> {
                     _uiState.value = _uiState.value.copy(
@@ -61,11 +75,26 @@ class CallDetailViewModel(
         }
     }
 
+    private fun fetchCallerHistory(callerNumber: String) {
+        if (callerNumber.isBlank()) return
+        viewModelScope.launch {
+            when (val res = callRepository.getCalls(limit = 20, search = callerNumber)) {
+                is NetworkResult.Success -> {
+                    val (calls, _) = res.data
+                    val matching = calls.filter { it.callerNumber.trim() == callerNumber.trim() }
+                        .sortedByDescending { it.createdAt }
+                    _uiState.value = _uiState.value.copy(callerCalls = matching)
+                }
+                else -> {}
+            }
+        }
+    }
+
     fun toggleImportant() {
         val current = _uiState.value.callDetail ?: return
         viewModelScope.launch {
             val newState = !current.isImportant
-            when (val res = callRepository.toggleImportant(callId, newState)) {
+            when (val res = callRepository.toggleImportant(currentCallId, newState)) {
                 is NetworkResult.Success -> {
                     _uiState.value = _uiState.value.copy(callDetail = res.data)
                 }
@@ -79,10 +108,10 @@ class CallDetailViewModel(
 
     fun deleteCall(onDeleted: () -> Unit) {
         viewModelScope.launch {
-            when (val res = callRepository.deleteCall(callId)) {
+            when (val res = callRepository.deleteCall(currentCallId)) {
                 is NetworkResult.Success -> {
-                    LocalRecordingManager.deleteRecording(callId)
-                    CallEventBus.emit(AppCallEvent.CallDeleted(callId))
+                    LocalRecordingManager.deleteRecording(currentCallId)
+                    CallEventBus.emit(AppCallEvent.CallDeleted(currentCallId))
                     _uiState.value = _uiState.value.copy(isDeleted = true)
                     onDeleted()
                 }
@@ -97,7 +126,7 @@ class CallDetailViewModel(
     fun requestRecordingPlaybackUrl() {
         _uiState.value = _uiState.value.copy(isLoadingRecording = true, recordingErrorMessage = null)
         viewModelScope.launch {
-            when (val res = callRepository.getRecordingUrl(callId)) {
+            when (val res = callRepository.getRecordingUrl(currentCallId)) {
                 is NetworkResult.Success -> {
                     _uiState.value = _uiState.value.copy(
                         isLoadingRecording = false,

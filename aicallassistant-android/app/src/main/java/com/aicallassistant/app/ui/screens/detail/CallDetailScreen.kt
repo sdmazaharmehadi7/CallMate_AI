@@ -1,9 +1,12 @@
 package com.aicallassistant.app.ui.screens.detail
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -12,12 +15,18 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Star
@@ -25,6 +34,7 @@ import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.FiberManualRecord
 import androidx.compose.material.icons.outlined.Headphones
 import androidx.compose.material.icons.outlined.RadioButtonUnchecked
+import androidx.compose.material.icons.outlined.SmartToy
 import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.Button
@@ -33,14 +43,19 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -51,21 +66,31 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aicallassistant.app.core.util.DateUtils
 import com.aicallassistant.app.data.audio.LocalRecordingManager
+import com.aicallassistant.app.domain.model.CallItem
 import com.aicallassistant.app.domain.model.SpeakerType
 import com.aicallassistant.app.domain.model.TranscriptItem
+import com.aicallassistant.app.ui.components.CallerAvatar
 import com.aicallassistant.app.ui.components.CallRecordingPlayer
 import com.aicallassistant.app.ui.components.DeleteConfirmationDialog
 import com.aicallassistant.app.ui.components.UrgencyBadge
-import com.aicallassistant.app.ui.theme.CallMateBackgroundGradient
-import com.aicallassistant.app.ui.theme.CallMateCyan
-import com.aicallassistant.app.ui.theme.CallMateNavyBg
-import com.aicallassistant.app.ui.theme.CallMateNavyElevated
-import com.aicallassistant.app.ui.theme.CallMateNavySurface
+import com.aicallassistant.app.ui.theme.EqualDarkBg
+import com.aicallassistant.app.ui.theme.EqualDarkBorder
+import com.aicallassistant.app.ui.theme.EqualDarkCard
+import com.aicallassistant.app.ui.theme.EqualDarkSurface
+import com.aicallassistant.app.ui.theme.EqualGreen
+import com.aicallassistant.app.ui.theme.EqualGreenText
+import com.aicallassistant.app.ui.theme.EqualTextPrimary
+import com.aicallassistant.app.ui.theme.EqualTextSecondary
+import com.aicallassistant.app.ui.theme.TealPrimary
+import com.aicallassistant.app.ui.theme.WhatsAppCheckBlue
+import com.aicallassistant.app.ui.theme.WhatsAppIncomingBubble
+import com.aicallassistant.app.ui.theme.WhatsAppOutgoingBubble
 import com.aicallassistant.app.ui.viewmodel.CallDetailViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -75,7 +100,9 @@ fun CallDetailScreen(
     onNavigateBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    var noteInput by remember { mutableStateOf("") }
 
     if (showDeleteConfirm) {
         DeleteConfirmationDialog(
@@ -86,32 +113,73 @@ fun CallDetailScreen(
         )
     }
 
+    val detail = uiState.callDetail
+
     Scaffold(
-        containerColor = CallMateNavyBg,
+        containerColor = EqualDarkBg,
         topBar = {
             TopAppBar(
-                title = { Text("Call Details", fontWeight = FontWeight.Bold, color = Color.White) },
+                title = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    ) {
+                        CallerAvatar(
+                            callerName = detail?.callerName,
+                            callerNumber = detail?.callerNumber ?: "",
+                            size = 38.dp
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                text = detail?.callerName?.takeIf { it.isNotBlank() }
+                                    ?: detail?.callerNumber
+                                    ?: "Call Details",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp,
+                                color = EqualTextPrimary
+                            )
+                            Text(
+                                text = if (detail != null) "${detail.callerNumber} • Equal Assistant" else "Loading...",
+                                fontSize = 11.sp,
+                                color = EqualGreen
+                            )
+                        }
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = EqualTextPrimary
+                        )
                     }
                 },
                 actions = {
-                    uiState.callDetail?.let { detail ->
-                        IconButton(onClick = { viewModel.loadCallDetail() }) {
+                    if (detail != null) {
+                        // Phone Call Back button
+                        IconButton(onClick = {
+                            val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${detail.callerNumber}"))
+                            context.startActivity(intent)
+                        }) {
                             Icon(
-                                imageVector = Icons.Default.Refresh,
-                                contentDescription = "Refresh call details",
-                                tint = CallMateCyan
+                                imageVector = Icons.Default.Call,
+                                contentDescription = "Call back",
+                                tint = TealPrimary
                             )
                         }
+
+                        // Star / Important
                         IconButton(onClick = { viewModel.toggleImportant() }) {
                             Icon(
                                 imageVector = if (detail.isImportant) Icons.Default.Star else Icons.Outlined.StarOutline,
                                 contentDescription = "Star call",
-                                tint = if (detail.isImportant) Color(0xFFFBBF24) else Color(0xFF94A3B8)
+                                tint = if (detail.isImportant) Color(0xFFFBBF24) else EqualTextSecondary
                             )
                         }
+
+                        // Delete
                         IconButton(onClick = { showDeleteConfirm = true }) {
                             Icon(
                                 imageVector = Icons.Default.Delete,
@@ -122,207 +190,280 @@ fun CallDetailScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = CallMateNavyBg,
-                    titleContentColor = Color.White
+                    containerColor = EqualDarkSurface,
+                    titleContentColor = EqualTextPrimary
                 )
             )
+        },
+        bottomBar = {
+            // WhatsApp-style message/instruction bar
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = EqualDarkSurface,
+                shadowElevation = 8.dp
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = noteInput,
+                        onValueChange = { noteInput = it },
+                        placeholder = {
+                            Text(
+                                "Type instruction for Equal Assistant...",
+                                color = EqualTextSecondary,
+                                fontSize = 13.sp
+                            )
+                        },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = EqualTextPrimary,
+                            unfocusedTextColor = EqualTextPrimary,
+                            focusedBorderColor = TealPrimary,
+                            unfocusedBorderColor = EqualDarkBorder,
+                            focusedContainerColor = EqualDarkCard,
+                            unfocusedContainerColor = EqualDarkCard,
+                            cursorColor = TealPrimary
+                        ),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(50.dp),
+                        shape = RoundedCornerShape(24.dp)
+                    )
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(if (noteInput.isNotBlank()) TealPrimary else EqualGreen.copy(alpha = 0.8f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        IconButton(
+                            onClick = {
+                                if (noteInput.isNotBlank()) {
+                                    // Feedback notification or note saving
+                                    noteInput = ""
+                                }
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.Send,
+                                contentDescription = "Send instruction",
+                                tint = Color(0xFF0F141C),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                }
+            }
         }
     ) { padding ->
-        androidx.compose.material3.pulltorefresh.PullToRefreshBox(
+        PullToRefreshBox(
             isRefreshing = uiState.isLoading,
             onRefresh = { viewModel.loadCallDetail() },
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .background(CallMateBackgroundGradient)
+                .background(EqualDarkBg)
         ) {
             when {
-                uiState.isLoading -> {
+                uiState.isLoading && detail == null -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            CircularProgressIndicator(color = CallMateCyan)
+                            CircularProgressIndicator(color = TealPrimary)
                             Spacer(modifier = Modifier.height(12.dp))
-                            Text("Loading call details...", color = Color(0xFF94A3B8), fontSize = 13.sp)
+                            Text("Opening WhatsApp chat...", color = EqualTextSecondary, fontSize = 13.sp)
                         }
                     }
                 }
-                uiState.errorMessage != null && uiState.callDetail == null -> {
-                    Box(modifier = Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
+                uiState.errorMessage != null && detail == null -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(24.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("Failed to load details", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                            Text("Failed to load chat", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                             Spacer(modifier = Modifier.height(6.dp))
-                            Text(uiState.errorMessage ?: "", color = Color(0xFF94A3B8), fontSize = 12.sp)
+                            Text(uiState.errorMessage ?: "", color = EqualTextSecondary, fontSize = 12.sp)
                             Spacer(modifier = Modifier.height(16.dp))
                             Button(
                                 onClick = { viewModel.loadCallDetail() },
-                                colors = ButtonDefaults.buttonColors(containerColor = CallMateCyan, contentColor = CallMateNavyBg)
+                                colors = ButtonDefaults.buttonColors(containerColor = TealPrimary, contentColor = Color(0xFF0F141C))
                             ) {
                                 Text("Retry", fontWeight = FontWeight.Bold)
                             }
                         }
                     }
                 }
-                uiState.callDetail != null -> {
-                    val detail = uiState.callDetail!!
+                detail != null -> {
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                            .padding(horizontal = 14.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        // Header Info Card
+                        // Multi-call session selector if the same caller called multiple times
+                        if (uiState.callerCalls.size > 1) {
+                            item {
+                                Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                                    Text(
+                                        text = "Call Sessions with ${detail.callerName ?: detail.callerNumber} (${uiState.callerCalls.size})",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = EqualGreenText
+                                    )
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    LazyRow(
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        contentPadding = PaddingValues(vertical = 2.dp)
+                                    ) {
+                                        items(uiState.callerCalls, key = { it.id }) { sessionCall ->
+                                            val isSelected = sessionCall.id == uiState.selectedCallId
+                                            FilterChip(
+                                                selected = isSelected,
+                                                onClick = { viewModel.selectSession(sessionCall.id) },
+                                                label = {
+                                                    Text(
+                                                        text = "${DateUtils.formatChatTimestamp(sessionCall.createdAt)} (${DateUtils.formatDuration(sessionCall.durationSeconds)})",
+                                                        fontSize = 11.sp,
+                                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                                    )
+                                                },
+                                                colors = FilterChipDefaults.filterChipColors(
+                                                    selectedContainerColor = TealPrimary,
+                                                    selectedLabelColor = Color(0xFF0F141C),
+                                                    containerColor = EqualDarkSurface,
+                                                    labelColor = EqualTextSecondary
+                                                ),
+                                                border = FilterChipDefaults.filterChipBorder(
+                                                    enabled = true,
+                                                    selected = isSelected,
+                                                    borderColor = if (isSelected) TealPrimary else EqualDarkBorder
+                                                )
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // WhatsApp Date Divider Pill
                         item {
-                            Surface(
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 6.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = EqualDarkSurface,
+                                    shadowElevation = 2.dp
+                                ) {
+                                    Text(
+                                        text = "${DateUtils.getRelativeDateHeader(detail.createdAt)} • ${DateUtils.formatTimeOnly(detail.createdAt)}",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = EqualTextSecondary,
+                                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        // AI Call Summary Card (Pinned in Chat)
+                        item {
+                            Card(
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(16.dp),
-                                color = CallMateNavySurface
+                                colors = CardDefaults.cardColors(containerColor = EqualDarkCard)
                             ) {
-                                Column(modifier = Modifier.padding(18.dp)) {
+                                Column(modifier = Modifier.padding(16.dp)) {
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(
-                                                text = detail.callerName ?: "Unknown Caller",
-                                                fontSize = 20.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = Color.White
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(
+                                                imageVector = Icons.Outlined.SmartToy,
+                                                contentDescription = null,
+                                                tint = EqualGreen,
+                                                modifier = Modifier.size(20.dp)
                                             )
-                                            Spacer(modifier = Modifier.height(2.dp))
+                                            Spacer(modifier = Modifier.width(8.dp))
                                             Text(
-                                                text = detail.callerNumber,
-                                                fontSize = 13.sp,
-                                                color = Color(0xFF94A3B8)
+                                                text = "AI Call Summary",
+                                                fontSize = 15.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = EqualGreenText
                                             )
                                         }
 
                                         UrgencyBadge(urgency = detail.urgency)
                                     }
 
-                                    Spacer(modifier = Modifier.height(14.dp))
-                                    HorizontalDivider(color = Color(0xFF1E293B))
-                                    Spacer(modifier = Modifier.height(14.dp))
-
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Text("Date", fontSize = 13.sp, color = Color(0xFF94A3B8))
-                                        Text(DateUtils.formatIsoDate(detail.createdAt), fontSize = 13.sp, fontWeight = FontWeight.Medium, color = Color.White)
-                                    }
-
-                                    Spacer(modifier = Modifier.height(8.dp))
-
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Text("Duration", fontSize = 13.sp, color = Color(0xFF94A3B8))
-                                        Text(DateUtils.formatDuration(detail.durationSeconds), fontSize = 13.sp, fontWeight = FontWeight.Medium, color = Color.White)
-                                    }
-
-                                    Spacer(modifier = Modifier.height(8.dp))
-
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        Text("Status", fontSize = 13.sp, color = Color(0xFF94A3B8))
-                                        Text(detail.status.value.uppercase(), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = CallMateCyan)
-                                    }
-                                }
-                            }
-                        }
-
-                        // AI Summary Section
-                        item {
-                            Surface(
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(16.dp),
-                                color = CallMateNavySurface
-                            ) {
-                                Column(modifier = Modifier.padding(18.dp)) {
-                                    Text(
-                                        text = "AI Call Summary",
-                                        fontSize = 16.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = CallMateCyan
-                                    )
-
                                     Spacer(modifier = Modifier.height(10.dp))
 
                                     Text(
-                                        text = detail.summary ?: "No summary recorded for this call.",
-                                        fontSize = 14.sp,
-                                        color = Color.White,
-                                        lineHeight = 20.sp
+                                        text = detail.summary ?: "No summary recorded for this screened call.",
+                                        fontSize = 13.sp,
+                                        color = EqualTextPrimary,
+                                        lineHeight = 19.sp
                                     )
 
-                                    if (detail.callerReason != null) {
-                                        Spacer(modifier = Modifier.height(12.dp))
-                                        Text(
-                                            text = "Caller's Intent: ${detail.callerReason}",
-                                            fontSize = 13.sp,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = Color(0xFFE2E8F0)
-                                        )
-                                    }
-
-                                    if (detail.urgencyExplanation != null) {
-                                        Spacer(modifier = Modifier.height(6.dp))
-                                        Text(
-                                            text = "Urgency Assessment: ${detail.urgencyExplanation}",
-                                            fontSize = 12.sp,
-                                            color = Color(0xFF94A3B8)
-                                        )
-                                    }
-
-                                    // Key Facts
                                     if (detail.keyFacts.isNotEmpty()) {
-                                        Spacer(modifier = Modifier.height(14.dp))
+                                        Spacer(modifier = Modifier.height(10.dp))
                                         Text(
-                                            text = "Key Facts Extracted:",
-                                            fontSize = 13.sp,
+                                            text = "Key Facts Captured:",
+                                            fontSize = 12.sp,
                                             fontWeight = FontWeight.Bold,
-                                            color = Color.White
+                                            color = TealPrimary
                                         )
                                         Spacer(modifier = Modifier.height(6.dp))
                                         detail.keyFacts.forEach { fact ->
-                                            Row(modifier = Modifier.padding(vertical = 2.dp)) {
+                                            Row(
+                                                modifier = Modifier.padding(vertical = 2.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
                                                 Icon(
-                                                    Icons.Outlined.FiberManualRecord,
+                                                    imageVector = Icons.Outlined.FiberManualRecord,
                                                     contentDescription = null,
-                                                    tint = CallMateCyan,
-                                                    modifier = Modifier.size(10.dp).padding(top = 4.dp)
+                                                    tint = TealPrimary,
+                                                    modifier = Modifier.size(8.dp)
                                                 )
                                                 Spacer(modifier = Modifier.width(8.dp))
-                                                Text(fact, fontSize = 13.sp, color = Color(0xFFCBD5E1))
+                                                Text(fact, fontSize = 12.sp, color = EqualTextSecondary)
                                             }
                                         }
                                     }
 
-                                    // Uncertainties
                                     if (!detail.uncertainties.isNullOrBlank()) {
-                                        Spacer(modifier = Modifier.height(14.dp))
+                                        Spacer(modifier = Modifier.height(10.dp))
                                         Row(
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .background(Color(0xFF78350F).copy(alpha = 0.4f), RoundedCornerShape(8.dp))
-                                                .padding(10.dp),
+                                                .background(Color(0xFF78350F).copy(alpha = 0.35f), RoundedCornerShape(8.dp))
+                                                .padding(8.dp),
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
                                             Icon(
                                                 Icons.Outlined.Warning,
                                                 contentDescription = null,
                                                 tint = Color(0xFFFBBF24),
-                                                modifier = Modifier.size(18.dp)
+                                                modifier = Modifier.size(16.dp)
                                             )
-                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Spacer(modifier = Modifier.width(6.dp))
                                             Text(
                                                 text = "Uncertainty: ${detail.uncertainties}",
-                                                fontSize = 12.sp,
+                                                fontSize = 11.sp,
                                                 color = Color(0xFFFDE68A)
                                             )
                                         }
@@ -331,7 +472,7 @@ fun CallDetailScreen(
                             }
                         }
 
-                        // Recording Audio Player Card (Local-first with cloud fallback)
+                        // Call Recording Audio Player (Embedded directly in chat)
                         val localRecFile = LocalRecordingManager.getRecordingFile(detail.id)
                         val hasAnyRecording = localRecFile != null || detail.hasRecording
 
@@ -341,62 +482,123 @@ fun CallDetailScreen(
                                     CallRecordingPlayer(
                                         localFile = localRecFile,
                                         initialDurationSeconds = detail.durationSeconds,
-                                        title = "Call Audio Recording"
+                                        title = "Call Audio Recording (${DateUtils.formatDuration(detail.durationSeconds)})"
                                     )
                                 } else if (uiState.signedRecordingUrl != null) {
                                     CallRecordingPlayer(
                                         localFile = null,
                                         remoteUrl = uiState.signedRecordingUrl,
                                         initialDurationSeconds = detail.durationSeconds,
-                                        title = "Cloud Audio Recording"
+                                        title = "Cloud Audio Recording (${DateUtils.formatDuration(detail.durationSeconds)})"
                                     )
                                 } else {
                                     Surface(
                                         modifier = Modifier.fillMaxWidth(),
                                         shape = RoundedCornerShape(16.dp),
-                                        color = CallMateNavySurface
+                                        color = EqualDarkCard
                                     ) {
-                                        Column(modifier = Modifier.padding(18.dp)) {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(14.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
                                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Icon(Icons.Outlined.Headphones, contentDescription = null, tint = CallMateCyan)
-                                                Spacer(modifier = Modifier.width(8.dp))
-                                                Text(
-                                                    text = "Call Recording",
-                                                    fontSize = 16.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = Color.White
+                                                Icon(
+                                                    Icons.Outlined.Headphones,
+                                                    contentDescription = null,
+                                                    tint = TealPrimary,
+                                                    modifier = Modifier.size(24.dp)
                                                 )
+                                                Spacer(modifier = Modifier.width(10.dp))
+                                                Column {
+                                                    Text(
+                                                        text = "Call Audio Recording",
+                                                        fontSize = 14.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = EqualTextPrimary
+                                                    )
+                                                    Text(
+                                                        text = "${DateUtils.formatDuration(detail.durationSeconds)} • Tap to play",
+                                                        fontSize = 11.sp,
+                                                        color = EqualTextSecondary
+                                                    )
+                                                }
                                             }
-                                            Spacer(modifier = Modifier.height(8.dp))
-                                            Text(
-                                                text = "Cloud recording available. Tap below to fetch authenticated playback URL.",
-                                                fontSize = 12.sp,
-                                                color = Color(0xFF94A3B8)
-                                            )
-                                            Spacer(modifier = Modifier.height(10.dp))
+
                                             Button(
                                                 onClick = { viewModel.requestRecordingPlaybackUrl() },
                                                 enabled = !uiState.isLoadingRecording,
                                                 colors = ButtonDefaults.buttonColors(
-                                                    containerColor = CallMateCyan,
-                                                    contentColor = CallMateNavyBg
+                                                    containerColor = TealPrimary,
+                                                    contentColor = Color(0xFF0F141C)
                                                 ),
-                                                shape = RoundedCornerShape(8.dp)
+                                                shape = RoundedCornerShape(20.dp),
+                                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
                                             ) {
                                                 if (uiState.isLoadingRecording) {
-                                                    CircularProgressIndicator(modifier = Modifier.size(18.dp), color = CallMateNavyBg)
+                                                    CircularProgressIndicator(
+                                                        modifier = Modifier.size(16.dp),
+                                                        color = Color(0xFF0F141C)
+                                                    )
                                                 } else {
-                                                    Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
-                                                    Spacer(modifier = Modifier.width(6.dp))
-                                                    Text("Load Cloud Recording", fontWeight = FontWeight.Bold)
+                                                    Icon(
+                                                        Icons.Default.PlayArrow,
+                                                        contentDescription = null,
+                                                        modifier = Modifier.size(18.dp)
+                                                    )
+                                                    Spacer(modifier = Modifier.width(4.dp))
+                                                    Text("Play", fontWeight = FontWeight.Bold, fontSize = 12.sp)
                                                 }
                                             }
-                                            if (uiState.recordingErrorMessage != null) {
-                                                Spacer(modifier = Modifier.height(8.dp))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Action Items generated from this call
+                        if (detail.actionItems.isNotEmpty()) {
+                            item {
+                                Column(modifier = Modifier.padding(top = 4.dp)) {
+                                    Text(
+                                        text = "Tasks from this call (${detail.actionItems.size}):",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = EqualGreenText
+                                    )
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    detail.actionItems.forEach { actionItem ->
+                                        Surface(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(vertical = 3.dp),
+                                            shape = RoundedCornerShape(12.dp),
+                                            color = EqualDarkSurface
+                                        ) {
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                IconButton(
+                                                    onClick = { viewModel.toggleActionItem(actionItem.id, actionItem.completed) },
+                                                    modifier = Modifier.size(28.dp)
+                                                ) {
+                                                    Icon(
+                                                        imageVector = if (actionItem.completed) Icons.Outlined.CheckCircle else Icons.Outlined.RadioButtonUnchecked,
+                                                        contentDescription = "Toggle completion",
+                                                        tint = if (actionItem.completed) EqualGreen else EqualTextSecondary,
+                                                        modifier = Modifier.size(20.dp)
+                                                    )
+                                                }
+                                                Spacer(modifier = Modifier.width(8.dp))
                                                 Text(
-                                                    text = uiState.recordingErrorMessage!!,
-                                                    color = Color(0xFFFCA5A5),
-                                                    fontSize = 12.sp
+                                                    text = actionItem.task,
+                                                    fontSize = 12.sp,
+                                                    color = if (actionItem.completed) EqualTextSecondary else EqualTextPrimary
                                                 )
                                             }
                                         }
@@ -405,69 +607,40 @@ fun CallDetailScreen(
                             }
                         }
 
-                        // Linked Action Items
-                        if (detail.actionItems.isNotEmpty()) {
-                            item {
-                                Text(
-                                    text = "Action Items (${detail.actionItems.size})",
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White
-                                )
-                            }
-
-                            items(detail.actionItems, key = { it.id }) { actionItem ->
-                                Surface(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(12.dp),
-                                    color = CallMateNavySurface
-                                ) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(14.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        IconButton(onClick = { viewModel.toggleActionItem(actionItem.id, actionItem.completed) }) {
-                                            Icon(
-                                                imageVector = if (actionItem.completed) Icons.Outlined.CheckCircle else Icons.Outlined.RadioButtonUnchecked,
-                                                contentDescription = "Toggle completion",
-                                                tint = if (actionItem.completed) CallMateCyan else Color(0xFF64748B)
-                                            )
-                                        }
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text(
-                                            text = actionItem.task,
-                                            fontSize = 13.sp,
-                                            fontWeight = if (actionItem.completed) FontWeight.Normal else FontWeight.SemiBold,
-                                            color = if (actionItem.completed) Color(0xFF64748B) else Color.White
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
-                        // Transcripts
+                        // WhatsApp Conversation Section Header
                         item {
+                            Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "Conversation Transcript",
-                                fontSize = 16.sp,
+                                text = "Screened Conversation",
+                                fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color.White
+                                color = EqualTextSecondary,
+                                modifier = Modifier.padding(horizontal = 4.dp)
                             )
                         }
 
+                        // Dialog Bubbles (WhatsApp layout)
                         if (detail.transcripts.isEmpty()) {
                             item {
-                                Text(
-                                    text = "No live dialog transcripts captured for this call.",
-                                    fontSize = 13.sp,
-                                    color = Color(0xFF94A3B8)
-                                )
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 16.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "No live speech turns recorded.",
+                                        fontSize = 12.sp,
+                                        color = EqualTextSecondary
+                                    )
+                                }
                             }
                         } else {
                             items(detail.transcripts, key = { it.id }) { transcript ->
-                                DetailTranscriptBubble(transcript = transcript)
+                                WhatsAppChatBubble(
+                                    transcript = transcript,
+                                    callerName = detail.callerName ?: "Caller"
+                                )
                             }
                         }
                     }
@@ -477,38 +650,96 @@ fun CallDetailScreen(
     }
 }
 
+/**
+ * WhatsApp-style message bubble.
+ * - Caller (Incoming): Left aligned, dark neutral bubble, caller name in teal, time stamp on bottom right.
+ * - Equal AI Assistant (Outgoing): Right aligned, WhatsApp green/teal bubble, Equal badge, time stamp + double blue checkmarks!
+ */
 @Composable
-fun DetailTranscriptBubble(transcript: TranscriptItem) {
+fun WhatsAppChatBubble(
+    transcript: TranscriptItem,
+    callerName: String
+) {
     val isAssistant = transcript.speaker == SpeakerType.ASSISTANT
-    val alignment = if (isAssistant) Alignment.End else Alignment.Start
+    val alignment = if (isAssistant) Alignment.CenterEnd else Alignment.CenterStart
+    val bubbleColor = if (isAssistant) WhatsAppOutgoingBubble else WhatsAppIncomingBubble
+    val bubbleShape = if (isAssistant) {
+        RoundedCornerShape(topStart = 16.dp, topEnd = 4.dp, bottomEnd = 16.dp, bottomStart = 16.dp)
+    } else {
+        RoundedCornerShape(topStart = 4.dp, topEnd = 16.dp, bottomEnd = 16.dp, bottomStart = 16.dp)
+    }
 
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = alignment
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 3.dp),
+        contentAlignment = alignment
     ) {
-        Text(
-            text = if (isAssistant) "CallMate AI" else "Caller",
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Bold,
-            color = if (isAssistant) CallMateCyan else Color(0xFF94A3B8),
-            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
-        )
         Surface(
-            shape = RoundedCornerShape(
-                topStart = 12.dp,
-                topEnd = 12.dp,
-                bottomStart = if (isAssistant) 12.dp else 2.dp,
-                bottomEnd = if (isAssistant) 2.dp else 12.dp
-            ),
-            color = if (isAssistant) CallMateNavyElevated else Color(0xFF1E293B),
-            border = if (isAssistant) androidx.compose.foundation.BorderStroke(1.dp, CallMateCyan.copy(alpha = 0.3f)) else null
+            shape = bubbleShape,
+            color = bubbleColor,
+            shadowElevation = 2.dp,
+            modifier = Modifier.widthIn(min = 120.dp, max = 310.dp)
         ) {
-            Text(
-                text = transcript.text,
-                fontSize = 13.sp,
-                color = Color.White,
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
-            )
+            Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+                // Sender label
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(bottom = 2.dp)
+                ) {
+                    if (isAssistant) {
+                        Text(
+                            text = "Equal AI Assistant",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = EqualGreenText
+                        )
+                    } else {
+                        Text(
+                            text = callerName,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TealPrimary
+                        )
+                    }
+                }
+
+                // Message Text
+                Text(
+                    text = transcript.text,
+                    fontSize = 13.sp,
+                    color = EqualTextPrimary,
+                    lineHeight = 18.sp
+                )
+
+                // Timestamp & WhatsApp Checkmarks
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.End)
+                        .padding(top = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val timeStr = DateUtils.formatTimeOnly(transcript.createdAt).ifBlank {
+                        val secs = (transcript.timestampMs / 1000).toInt()
+                        DateUtils.formatDurationClock(secs)
+                    }
+                    Text(
+                        text = timeStr,
+                        fontSize = 10.sp,
+                        color = Color(0xFF94A3B8)
+                    )
+
+                    if (isAssistant) {
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Icon(
+                            imageVector = Icons.Default.DoneAll,
+                            contentDescription = "Read",
+                            tint = WhatsAppCheckBlue,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                }
+            }
         }
     }
 }

@@ -1,7 +1,7 @@
 package com.aicallassistant.app.ui.screens.history
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,8 +20,15 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Inbox
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -35,30 +42,32 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.aicallassistant.app.R
-import com.aicallassistant.app.ui.screens.home.CallItemCard
-import com.aicallassistant.app.ui.theme.CallMateBackgroundGradient
-import com.aicallassistant.app.ui.theme.CallMateCyan
-import com.aicallassistant.app.ui.theme.CallMateNavyBg
-import com.aicallassistant.app.ui.theme.CallMateNavyElevated
-import com.aicallassistant.app.ui.theme.CallMateNavySurface
+import com.aicallassistant.app.core.util.DateUtils
+import com.aicallassistant.app.domain.model.CallItem
+import com.aicallassistant.app.ui.components.CallerAvatar
+import com.aicallassistant.app.ui.components.InstagramSkeletonCallList
+import com.aicallassistant.app.ui.components.UrgencyBadge
+import com.aicallassistant.app.ui.theme.EqualDarkBg
+import com.aicallassistant.app.ui.theme.EqualDarkBorder
+import com.aicallassistant.app.ui.theme.EqualDarkCard
+import com.aicallassistant.app.ui.theme.EqualDarkSurface
+import com.aicallassistant.app.ui.theme.EqualGreen
+import com.aicallassistant.app.ui.theme.EqualGreenText
+import com.aicallassistant.app.ui.theme.EqualTextPrimary
+import com.aicallassistant.app.ui.theme.EqualTextSecondary
+import com.aicallassistant.app.ui.theme.TealPrimary
 import com.aicallassistant.app.ui.viewmodel.CallHistoryViewModel
-
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
-import androidx.compose.material.icons.filled.Refresh
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -69,23 +78,21 @@ fun CallHistoryScreen(
     val uiState by viewModel.uiState.collectAsState()
 
     Scaffold(
-        containerColor = CallMateNavyBg,
+        containerColor = EqualDarkBg,
         topBar = {
             TopAppBar(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Image(
-                            painter = painterResource(id = R.drawable.callmate_logo),
-                            contentDescription = "CallMate",
-                            contentScale = ContentScale.Fit,
-                            modifier = Modifier
-                                .size(32.dp)
-                                .clip(RoundedCornerShape(6.dp))
+                        Icon(
+                            imageVector = Icons.Default.Phone,
+                            contentDescription = null,
+                            tint = EqualGreen,
+                            modifier = Modifier.size(22.dp)
                         )
                         Spacer(modifier = Modifier.width(10.dp))
                         Text(
                             text = "Call History",
-                            color = Color.White,
+                            color = EqualTextPrimary,
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -96,211 +103,230 @@ fun CallHistoryScreen(
                         Icon(
                             imageVector = Icons.Default.Refresh,
                             contentDescription = "Refresh calls",
-                            tint = CallMateCyan
+                            tint = TealPrimary
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = CallMateNavyBg,
-                    titleContentColor = Color.White
+                    containerColor = EqualDarkBg,
+                    titleContentColor = EqualTextPrimary
                 )
             )
         }
     ) { padding ->
-        Column(
+        PullToRefreshBox(
+            isRefreshing = uiState.isLoading,
+            onRefresh = { viewModel.loadCalls(reset = true) },
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .background(CallMateBackgroundGradient)
+                .background(EqualDarkBg)
         ) {
-            // Search Input
-            OutlinedTextField(
-                value = uiState.searchQuery,
-                onValueChange = { viewModel.onSearchQueryChange(it) },
-                placeholder = { Text("Search caller, number, or summary...", color = Color(0xFF64748B), fontSize = 13.sp) },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search", tint = CallMateCyan) },
-                trailingIcon = {
-                    if (uiState.searchQuery.isNotBlank()) {
-                        IconButton(onClick = { viewModel.onSearchQueryChange("") }) {
-                            Icon(Icons.Default.Clear, contentDescription = "Clear search", tint = Color(0xFF94A3B8))
-                        }
-                    }
-                },
-                singleLine = true,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White,
-                    focusedBorderColor = CallMateCyan,
-                    unfocusedBorderColor = Color(0xFF334155),
-                    cursorColor = CallMateCyan
-                ),
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                shape = RoundedCornerShape(12.dp)
-            )
-
-            // Filter Chips
-            LazyRow(
-                modifier = Modifier.fillMaxWidth(),
-                contentPadding = PaddingValues(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp)
             ) {
-                item {
-                    val selected = uiState.selectedStatus == null && !uiState.importantOnly
-                    FilterChip(
-                        selected = selected,
-                        onClick = {
-                            viewModel.onStatusFilterChange(null)
-                            if (uiState.importantOnly) viewModel.onImportantFilterToggle()
-                        },
-                        label = { Text("All", fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = CallMateCyan,
-                            selectedLabelColor = CallMateNavyBg,
-                            containerColor = CallMateNavyElevated,
-                            labelColor = Color(0xFFCBD5E1)
+                // Search Input
+                OutlinedTextField(
+                    value = uiState.searchQuery,
+                    onValueChange = { viewModel.onSearchQueryChange(it) },
+                    placeholder = {
+                        Text(
+                            "Search caller, number, summary...",
+                            color = EqualTextSecondary,
+                            fontSize = 13.sp
                         )
-                    )
-                }
-                item {
-                    val selected = uiState.selectedStatus == "completed"
-                    FilterChip(
-                        selected = selected,
-                        onClick = {
-                            val next = if (uiState.selectedStatus == "completed") null else "completed"
-                            viewModel.onStatusFilterChange(next)
-                        },
-                        label = { Text("Completed", fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = CallMateCyan,
-                            selectedLabelColor = CallMateNavyBg,
-                            containerColor = CallMateNavyElevated,
-                            labelColor = Color(0xFFCBD5E1)
-                        )
-                    )
-                }
-                item {
-                    val selected = uiState.selectedStatus == "active"
-                    FilterChip(
-                        selected = selected,
-                        onClick = {
-                            val next = if (uiState.selectedStatus == "active") null else "active"
-                            viewModel.onStatusFilterChange(next)
-                        },
-                        label = { Text("Active", fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = CallMateCyan,
-                            selectedLabelColor = CallMateNavyBg,
-                            containerColor = CallMateNavyElevated,
-                            labelColor = Color(0xFFCBD5E1)
-                        )
-                    )
-                }
-                item {
-                    val selected = uiState.importantOnly
-                    FilterChip(
-                        selected = selected,
-                        onClick = { viewModel.onImportantFilterToggle() },
-                        label = { Text("Starred", fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = CallMateCyan,
-                            selectedLabelColor = CallMateNavyBg,
-                            containerColor = CallMateNavyElevated,
-                            labelColor = Color(0xFFCBD5E1)
-                        )
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Calls List Area with Pull to Refresh
-            PullToRefreshBox(
-                isRefreshing = uiState.isLoading,
-                onRefresh = { viewModel.loadCalls(reset = true) },
-                modifier = Modifier.fillMaxSize()
-            ) {
-                when {
-                    uiState.isLoading && uiState.calls.isEmpty() -> {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                CircularProgressIndicator(color = CallMateCyan)
-                                Spacer(modifier = Modifier.height(12.dp))
-                                Text("Loading calls...", color = Color(0xFF94A3B8), fontSize = 13.sp)
+                    },
+                    leadingIcon = {
+                        Icon(Icons.Default.Search, contentDescription = "Search", tint = TealPrimary)
+                    },
+                    trailingIcon = {
+                        if (uiState.searchQuery.isNotBlank()) {
+                            IconButton(onClick = { viewModel.onSearchQueryChange("") }) {
+                                Icon(Icons.Default.Clear, contentDescription = "Clear", tint = EqualTextSecondary)
                             }
                         }
+                    },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = EqualTextPrimary,
+                        unfocusedTextColor = EqualTextPrimary,
+                        focusedBorderColor = TealPrimary,
+                        unfocusedBorderColor = EqualDarkBorder,
+                        focusedContainerColor = EqualDarkCard,
+                        unfocusedContainerColor = EqualDarkCard,
+                        cursorColor = TealPrimary
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    shape = RoundedCornerShape(14.dp)
+                )
+
+                // Filter Chips Row
+                LazyRow(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    item {
+                        FilterChip(
+                            selected = uiState.selectedStatus == null && !uiState.importantOnly,
+                            onClick = {
+                                viewModel.onStatusFilterChange(null)
+                                if (uiState.importantOnly) viewModel.onImportantFilterToggle()
+                            },
+                            label = { Text("All Calls", fontSize = 12.sp) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = TealPrimary,
+                                selectedLabelColor = Color(0xFF0F141C),
+                                containerColor = EqualDarkCard,
+                                labelColor = EqualTextSecondary
+                            ),
+                            border = FilterChipDefaults.filterChipBorder(
+                                enabled = true,
+                                selected = uiState.selectedStatus == null && !uiState.importantOnly,
+                                borderColor = if (uiState.selectedStatus == null && !uiState.importantOnly) TealPrimary else EqualDarkBorder
+                            )
+                        )
                     }
-                    uiState.errorMessage != null && uiState.calls.isEmpty() -> {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(24.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(
-                                    text = "Error Loading Calls",
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 16.sp
+
+                    item {
+                        FilterChip(
+                            selected = uiState.importantOnly,
+                            onClick = { viewModel.onImportantFilterToggle() },
+                            label = { Text("Starred ★", fontSize = 12.sp) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = Color(0xFFFBBF24),
+                                selectedLabelColor = Color(0xFF0F141C),
+                                containerColor = EqualDarkCard,
+                                labelColor = EqualTextSecondary
+                            ),
+                            border = FilterChipDefaults.filterChipBorder(
+                                enabled = true,
+                                selected = uiState.importantOnly,
+                                borderColor = if (uiState.importantOnly) Color(0xFFFBBF24) else EqualDarkBorder
+                            )
+                        )
+                    }
+
+                    listOf("completed", "active", "failed").forEach { status ->
+                        item {
+                            val isSelected = uiState.selectedStatus == status
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = { viewModel.onStatusFilterChange(if (isSelected) null else status) },
+                                label = { Text(status.replaceFirstChar { it.uppercase() }, fontSize = 12.sp) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = TealPrimary,
+                                    selectedLabelColor = Color(0xFF0F141C),
+                                    containerColor = EqualDarkCard,
+                                    labelColor = EqualTextSecondary
+                                ),
+                                border = FilterChipDefaults.filterChipBorder(
+                                    enabled = true,
+                                    selected = isSelected,
+                                    borderColor = if (isSelected) TealPrimary else EqualDarkBorder
                                 )
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Text(
-                                    text = uiState.errorMessage ?: "Check backend connection",
-                                    color = Color(0xFF94A3B8),
-                                    fontSize = 12.sp
-                                )
-                            }
+                            )
                         }
                     }
-                    uiState.calls.isEmpty() -> {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(24.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(
-                                    imageVector = Icons.Outlined.Inbox,
-                                    contentDescription = null,
-                                    tint = Color(0xFF64748B),
-                                    modifier = Modifier.size(48.dp)
-                                )
-                                Spacer(modifier = Modifier.height(12.dp))
-                                Text(
-                                    text = "No calls found",
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 16.sp
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = if (uiState.searchQuery.isNotBlank()) "No records matching '${uiState.searchQuery}'." else "No screened calls recorded yet.",
-                                    color = Color(0xFF94A3B8),
-                                    fontSize = 12.sp
-                                )
+                }
+
+                // Group calls by date!
+                val groupedCalls = uiState.calls.groupBy { call ->
+                    DateUtils.getRelativeDateHeader(call.createdAt)
+                }
+
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    contentPadding = PaddingValues(bottom = 90.dp)
+                ) {
+                    when {
+                        uiState.isLoading && uiState.calls.isEmpty() -> {
+                            item {
+                                InstagramSkeletonCallList(count = 5)
                             }
                         }
-                    }
-                    else -> {
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            items(uiState.calls, key = { it.id }) { call ->
-                                CallItemCard(
-                                    call = call,
-                                    onClick = { onNavigateToCallDetail(call.id) }
-                                )
+
+                        uiState.calls.isEmpty() -> {
+                            item {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(40.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Icon(
+                                            imageVector = Icons.Outlined.Inbox,
+                                            contentDescription = null,
+                                            tint = EqualGreen.copy(alpha = 0.5f),
+                                            modifier = Modifier.size(54.dp)
+                                        )
+                                        Spacer(modifier = Modifier.height(12.dp))
+                                        Text(
+                                            text = "No calls found",
+                                            fontWeight = FontWeight.Bold,
+                                            color = EqualTextPrimary,
+                                            fontSize = 16.sp
+                                        )
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Text(
+                                            text = "Screened and simulated calls will appear here grouped by date.",
+                                            color = EqualTextSecondary,
+                                            fontSize = 12.sp
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        else -> {
+                            // Render sectioned by date
+                            groupedCalls.forEach { (dateHeader, callsForDate) ->
+                                item(key = "header_$dateHeader") {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(top = 8.dp, bottom = 4.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Surface(
+                                            shape = RoundedCornerShape(12.dp),
+                                            color = EqualDarkSurface
+                                        ) {
+                                            Text(
+                                                text = dateHeader,
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = EqualGreenText,
+                                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                                            )
+                                        }
+
+                                        Text(
+                                            text = "${callsForDate.size} calls",
+                                            fontSize = 11.sp,
+                                            color = EqualTextSecondary
+                                        )
+                                    }
+                                }
+
+                                items(callsForDate, key = { it.id }) { call ->
+                                    CallHistoryCard(
+                                        call = call,
+                                        onClick = { onNavigateToCallDetail(call.id) },
+                                        onToggleImportant = { viewModel.toggleImportant(call) }
+                                    )
+                                }
                             }
 
-                            if (uiState.calls.size < uiState.totalCount) {
+                            if (uiState.isPaginating) {
                                 item {
                                     Box(
                                         modifier = Modifier
@@ -308,16 +334,142 @@ fun CallHistoryScreen(
                                             .padding(16.dp),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        if (uiState.isPaginating) {
-                                            CircularProgressIndicator(color = CallMateCyan)
-                                        } else {
-                                            viewModel.loadCalls(reset = false)
-                                        }
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(24.dp),
+                                            color = TealPrimary
+                                        )
                                     }
                                 }
                             }
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun CallHistoryCard(
+    call: CallItem,
+    onClick: () -> Unit,
+    onToggleImportant: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = EqualDarkCard),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                CallerAvatar(
+                    callerName = call.callerName,
+                    callerNumber = call.callerNumber,
+                    size = 42.dp
+                )
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = call.callerName?.ifBlank { null } ?: call.callerNumber,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = EqualTextPrimary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+
+                        Text(
+                            text = DateUtils.formatTimeOnly(call.createdAt),
+                            fontSize = 11.sp,
+                            color = EqualTextSecondary
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(2.dp))
+
+                    Text(
+                        text = call.callerNumber,
+                        fontSize = 11.sp,
+                        color = TealPrimary
+                    )
+                }
+
+                IconButton(
+                    onClick = onToggleImportant,
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Star,
+                        contentDescription = "Star",
+                        tint = if (call.isImportant) Color(0xFFFBBF24) else EqualDarkBorder,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = call.summary ?: call.callerReason ?: "Call recorded without summary",
+                fontSize = 12.sp,
+                color = EqualTextSecondary,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                lineHeight = 17.sp
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    UrgencyBadge(urgency = call.urgency)
+
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = EqualDarkSurface
+                    ) {
+                        Text(
+                            text = DateUtils.formatDuration(call.durationSeconds),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = EqualTextSecondary,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = TealPrimary.copy(alpha = 0.15f),
+                    modifier = Modifier.clickable(onClick = onClick)
+                ) {
+                    Text(
+                        text = "View Chat >",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TealPrimary,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                    )
                 }
             }
         }

@@ -1,6 +1,5 @@
 package com.aicallassistant.app.ui.screens.actionitems
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,6 +17,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Inbox
@@ -31,25 +31,25 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.aicallassistant.app.R
 import com.aicallassistant.app.domain.model.ActionItem
-import com.aicallassistant.app.ui.theme.CallMateBackgroundGradient
-import com.aicallassistant.app.ui.theme.CallMateCyan
-import com.aicallassistant.app.ui.theme.CallMateNavyBg
-import com.aicallassistant.app.ui.theme.CallMateNavySurface
+import com.aicallassistant.app.ui.theme.EqualDarkBg
+import com.aicallassistant.app.ui.theme.EqualDarkCard
+import com.aicallassistant.app.ui.theme.EqualDarkSurface
+import com.aicallassistant.app.ui.theme.EqualGreen
+import com.aicallassistant.app.ui.theme.EqualTextPrimary
+import com.aicallassistant.app.ui.theme.EqualTextSecondary
+import com.aicallassistant.app.ui.theme.TealPrimary
 import com.aicallassistant.app.ui.viewmodel.ActionItemsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -60,48 +60,48 @@ fun ActionItemsScreen(
     val uiState by viewModel.uiState.collectAsState()
 
     Scaffold(
-        containerColor = CallMateNavyBg,
+        containerColor = EqualDarkBg,
         topBar = {
             TopAppBar(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Image(
-                            painter = painterResource(id = R.drawable.callmate_logo),
-                            contentDescription = "CallMate",
-                            contentScale = ContentScale.Fit,
-                            modifier = Modifier
-                                .size(32.dp)
-                                .clip(RoundedCornerShape(6.dp))
+                        Icon(
+                            imageVector = Icons.Default.CheckCircle,
+                            contentDescription = null,
+                            tint = EqualGreen,
+                            modifier = Modifier.size(22.dp)
                         )
                         Spacer(modifier = Modifier.width(10.dp))
                         Text(
                             text = "Follow-up Tasks",
-                            color = Color.White,
+                            color = EqualTextPrimary,
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = CallMateNavyBg,
-                    titleContentColor = Color.White
+                    containerColor = EqualDarkBg,
+                    titleContentColor = EqualTextPrimary
                 )
             )
         }
     ) { padding ->
-        Box(
+        PullToRefreshBox(
+            isRefreshing = uiState.isLoading,
+            onRefresh = { viewModel.loadActionItems() },
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .background(CallMateBackgroundGradient)
+                .background(EqualDarkBg)
         ) {
             when {
                 uiState.isLoading && uiState.actionItems.isEmpty() -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            CircularProgressIndicator(color = CallMateCyan)
+                            CircularProgressIndicator(color = TealPrimary)
                             Spacer(modifier = Modifier.height(12.dp))
-                            Text("Loading tasks...", color = Color(0xFF94A3B8), fontSize = 13.sp)
+                            Text("Loading tasks...", color = EqualTextSecondary, fontSize = 13.sp)
                         }
                     }
                 }
@@ -110,7 +110,7 @@ fun ActionItemsScreen(
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text("Could not load tasks", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                             Spacer(modifier = Modifier.height(6.dp))
-                            Text(uiState.errorMessage ?: "", color = Color(0xFF94A3B8), fontSize = 12.sp)
+                            Text(uiState.errorMessage ?: "", color = EqualTextSecondary, fontSize = 12.sp)
                         }
                     }
                 }
@@ -120,20 +120,20 @@ fun ActionItemsScreen(
                             Icon(
                                 imageVector = Icons.Outlined.Inbox,
                                 contentDescription = null,
-                                tint = Color(0xFF64748B),
+                                tint = EqualGreen.copy(alpha = 0.5f),
                                 modifier = Modifier.size(48.dp)
                             )
                             Spacer(modifier = Modifier.height(12.dp))
                             Text(
                                 text = "No pending action items",
-                                color = Color.White,
+                                color = EqualTextPrimary,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 16.sp
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "Tasks and follow-ups extracted by CallMate will be listed here.",
-                                color = Color(0xFF94A3B8),
+                                text = "Tasks and follow-ups extracted by Equal Assistant will be listed here.",
+                                color = EqualTextSecondary,
                                 fontSize = 12.sp
                             )
                         }
@@ -142,7 +142,7 @@ fun ActionItemsScreen(
                 else -> {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(16.dp),
+                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 90.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         items(uiState.actionItems, key = { it.id }) { item ->
@@ -167,8 +167,8 @@ fun ActionItemRow(
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        color = CallMateNavySurface
+        shape = RoundedCornerShape(14.dp),
+        color = EqualDarkCard
     ) {
         Row(
             modifier = Modifier
@@ -180,7 +180,7 @@ fun ActionItemRow(
                 Icon(
                     imageVector = if (item.completed) Icons.Outlined.CheckCircle else Icons.Outlined.RadioButtonUnchecked,
                     contentDescription = "Toggle completion",
-                    tint = if (item.completed) CallMateCyan else Color(0xFF64748B)
+                    tint = if (item.completed) EqualGreen else EqualTextSecondary
                 )
             }
 
@@ -192,14 +192,14 @@ fun ActionItemRow(
                     fontSize = 14.sp,
                     fontWeight = if (item.completed) FontWeight.Normal else FontWeight.SemiBold,
                     textDecoration = if (item.completed) TextDecoration.LineThrough else TextDecoration.None,
-                    color = if (item.completed) Color(0xFF64748B) else Color.White
+                    color = if (item.completed) EqualTextSecondary else EqualTextPrimary
                 )
                 if (item.dueDate != null) {
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = "Due: ${item.dueDate}",
                         fontSize = 11.sp,
-                        color = Color(0xFF94A3B8)
+                        color = TealPrimary
                     )
                 }
             }
@@ -208,7 +208,7 @@ fun ActionItemRow(
                 Icon(
                     imageVector = Icons.Default.Delete,
                     contentDescription = "Delete item",
-                    tint = Color(0xFF64748B)
+                    tint = Color(0xFFF87171).copy(alpha = 0.7f)
                 )
             }
         }
