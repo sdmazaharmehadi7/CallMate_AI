@@ -27,16 +27,20 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.aicallassistant.app.ui.theme.EqualDarkCard
+import com.aicallassistant.app.ui.theme.CallMateBorder
+import com.aicallassistant.app.ui.theme.CallMateCard
+import com.aicallassistant.app.ui.theme.CallMatePrimary
 import com.aicallassistant.app.ui.theme.ShimmerBase
 import com.aicallassistant.app.ui.theme.ShimmerHighlight
-import com.aicallassistant.app.ui.theme.TealPrimary
 
 /**
- * Instagram-style skeleton shimmer modifier for smooth loading states.
+ * Consistent left-to-right shining shimmer modifier for smooth loading states.
  */
 fun Modifier.shimmerEffect(
     shape: Shape = RoundedCornerShape(8.dp),
@@ -45,27 +49,29 @@ fun Modifier.shimmerEffect(
 ): Modifier = composed {
     val transition = rememberInfiniteTransition(label = "shimmer_transition")
     val translateAnim = transition.animateFloat(
-        initialValue = -500f,
+        initialValue = -350f,
         targetValue = 1200f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1100, easing = FastOutSlowInEasing),
+            animation = tween(durationMillis = 1300, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "shimmer_translate"
     )
 
+    // True left-to-right metallic shine beam
     val shimmerColors = listOf(
         baseColor,
-        highlightColor.copy(alpha = 0.9f),
-        TealPrimary.copy(alpha = 0.15f),
-        highlightColor.copy(alpha = 0.9f),
+        baseColor,
+        highlightColor,
+        highlightColor.copy(alpha = 0.95f),
+        baseColor,
         baseColor
     )
 
     val brush = Brush.linearGradient(
         colors = shimmerColors,
-        start = Offset(x = translateAnim.value - 300f, y = translateAnim.value - 300f),
-        end = Offset(x = translateAnim.value + 300f, y = translateAnim.value + 300f)
+        start = Offset(x = translateAnim.value, y = 0f),
+        end = Offset(x = translateAnim.value + 350f, y = 0f)
     )
 
     this
@@ -94,8 +100,9 @@ fun InstagramSkeletonChatRow(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(EqualDarkCard)
+            .clip(RoundedCornerShape(18.dp))
+            .background(CallMateCard)
+            .border(BorderStroke(1.dp, CallMateBorder), RoundedCornerShape(18.dp))
             .padding(14.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -147,8 +154,9 @@ fun InstagramSkeletonCallRow(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(EqualDarkCard)
+            .clip(RoundedCornerShape(18.dp))
+            .background(CallMateCard)
+            .border(BorderStroke(1.dp, CallMateBorder), RoundedCornerShape(18.dp))
             .padding(14.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {

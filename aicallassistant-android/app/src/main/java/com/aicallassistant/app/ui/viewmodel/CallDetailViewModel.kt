@@ -19,6 +19,7 @@ import kotlinx.coroutines.launch
 
 data class CallDetailUiState(
     val isLoading: Boolean = true,
+    val isRefreshing: Boolean = false,
     val callDetail: CallDetail? = null,
     val callerCalls: List<CallItem> = emptyList(),
     val selectedCallId: String = "",
@@ -49,14 +50,19 @@ class CallDetailViewModel(
         loadCallDetail(newCallId)
     }
 
-    fun loadCallDetail(callIdToLoad: String = currentCallId) {
-        _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
+    fun loadCallDetail(callIdToLoad: String = currentCallId, isRefresh: Boolean = false) {
+        if (isRefresh) {
+            _uiState.value = _uiState.value.copy(isRefreshing = true)
+        } else {
+            _uiState.value = _uiState.value.copy(isLoading = (_uiState.value.callDetail == null), errorMessage = null)
+        }
         viewModelScope.launch {
             when (val res = callRepository.getCallDetail(callIdToLoad)) {
                 is NetworkResult.Success -> {
                     val detail = res.data
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
+                        isRefreshing = false,
                         callDetail = detail,
                         selectedCallId = callIdToLoad,
                         errorMessage = null
@@ -67,6 +73,7 @@ class CallDetailViewModel(
                 is NetworkResult.Error -> {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
+                        isRefreshing = false,
                         errorMessage = res.message
                     )
                 }

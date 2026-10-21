@@ -47,9 +47,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.aicallassistant.app.ui.theme.CallMateCyan
-import com.aicallassistant.app.ui.theme.CallMateNavyElevated
-import com.aicallassistant.app.ui.theme.CallMateNavySurface
+import com.aicallassistant.app.ui.theme.CallMateBorder
+import com.aicallassistant.app.ui.theme.CallMateCard
+import com.aicallassistant.app.ui.theme.CallMateInk
+import com.aicallassistant.app.ui.theme.CallMatePrimary
+import com.aicallassistant.app.ui.theme.CallMateSlate
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import java.io.File
@@ -200,9 +204,11 @@ fun CallRecordingPlayer(
     }
 
     Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        color = CallMateNavySurface
+        modifier = modifier
+            .fillMaxWidth()
+            .border(BorderStroke(1.dp, CallMateBorder), RoundedCornerShape(18.dp)),
+        shape = RoundedCornerShape(18.dp),
+        color = CallMateCard
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             // Header Row: Title & Local/Cloud Pill
@@ -215,7 +221,7 @@ fun CallRecordingPlayer(
                     Icon(
                         imageVector = Icons.Outlined.Headphones,
                         contentDescription = null,
-                        tint = CallMateCyan,
+                        tint = CallMatePrimary,
                         modifier = Modifier.size(20.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
@@ -223,7 +229,7 @@ fun CallRecordingPlayer(
                         text = title,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White
+                        color = CallMateInk
                     )
                 }
 
@@ -232,7 +238,7 @@ fun CallRecordingPlayer(
                     modifier = Modifier
                         .clip(RoundedCornerShape(6.dp))
                         .background(
-                            if (isLocal) CallMateCyan.copy(alpha = 0.2f)
+                            if (isLocal) CallMatePrimary.copy(alpha = 0.2f)
                             else Color(0xFF64748B).copy(alpha = 0.2f)
                         )
                         .padding(horizontal = 8.dp, vertical = 3.dp)
@@ -241,7 +247,7 @@ fun CallRecordingPlayer(
                         text = if (isLocal) "DEVICE RECORDING" else "CLOUD RECORDING",
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
-                        color = if (isLocal) CallMateCyan else Color(0xFF94A3B8)
+                        color = if (isLocal) CallMatePrimary else CallMateSlate
                     )
                 }
             }
@@ -252,7 +258,7 @@ fun CallRecordingPlayer(
                 Text(
                     text = "No audio recording available for this call.",
                     fontSize = 12.sp,
-                    color = Color(0xFF94A3B8)
+                    color = CallMateSlate
                 )
             } else {
                 // Controls Row
@@ -264,14 +270,14 @@ fun CallRecordingPlayer(
                     Surface(
                         modifier = Modifier.size(46.dp),
                         shape = CircleShape,
-                        color = CallMateCyan
+                        color = CallMatePrimary
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             if (isPreparing) {
                                 CircularProgressIndicator(
                                     modifier = Modifier.size(24.dp),
                                     strokeWidth = 2.5.dp,
-                                    color = Color(0xFF0F172A)
+                                    color = Color.White
                                 )
                             } else {
                                 IconButton(
@@ -282,7 +288,7 @@ fun CallRecordingPlayer(
                                     Icon(
                                         imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                                         contentDescription = if (isPlaying) "Pause" else "Play",
-                                        tint = Color(0xFF0F172A),
+                                        tint = Color.White,
                                         modifier = Modifier.size(26.dp)
                                     )
                                 }
@@ -305,9 +311,9 @@ fun CallRecordingPlayer(
                                 seekToFraction(sliderProgress)
                             },
                             colors = SliderDefaults.colors(
-                                thumbColor = CallMateCyan,
-                                activeTrackColor = CallMateCyan,
-                                inactiveTrackColor = Color(0xFF334155)
+                                thumbColor = CallMatePrimary,
+                                activeTrackColor = CallMatePrimary,
+                                inactiveTrackColor = CallMateBorder
                             ),
                             modifier = Modifier.fillMaxWidth().height(24.dp)
                         )

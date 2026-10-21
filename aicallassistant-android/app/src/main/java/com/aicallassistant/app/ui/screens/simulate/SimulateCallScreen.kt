@@ -92,6 +92,7 @@ import com.aicallassistant.app.ui.theme.CallMateCyan
 import com.aicallassistant.app.ui.theme.CallMateNavyBg
 import com.aicallassistant.app.ui.theme.CallMateNavyElevated
 import com.aicallassistant.app.ui.theme.CallMateNavySurface
+import com.aicallassistant.app.ui.theme.CallMatePrimary
 import com.aicallassistant.app.ui.viewmodel.CallSessionState
 import com.aicallassistant.app.ui.viewmodel.LiveTranscriptTurn
 import com.aicallassistant.app.ui.viewmodel.SimulateCallViewModel
@@ -883,7 +884,7 @@ private fun CallMatePulseOrb(state: CallSessionState, isMuted: Boolean) {
     val orbColor = when {
         isMuted -> Color(0xFFEF4444)
         state == CallSessionState.AI_SPEAKING -> CallMateCyan
-        state == CallSessionState.PROCESSING -> Color(0xFFA855F7)
+        state == CallSessionState.PROCESSING -> CallMatePrimary
         state == CallSessionState.RECONNECTING -> Color(0xFFF59E0B)
         else -> Color(0xFF38BDF8)
     }
@@ -933,7 +934,7 @@ private fun CallMateStatusPill(state: CallSessionState, isMuted: Boolean) {
     val (bgColor, textColor, icon, label) = when {
         isMuted -> Quadruple(Color(0xFF7F1D1D), Color(0xFFFECACA), Icons.Default.MicOff, "Muted")
         state == CallSessionState.AI_SPEAKING -> Quadruple(CallMateCyan.copy(alpha = 0.2f), CallMateCyan, Icons.AutoMirrored.Filled.VolumeUp, "AI Speaking")
-        state == CallSessionState.PROCESSING -> Quadruple(Color(0xFF581C87), Color(0xFFE9D5FF), Icons.Default.SmartToy, "Thinking...")
+        state == CallSessionState.PROCESSING -> Quadruple(Color(0xFF1E3A8A), Color(0xFFBFDBFE), Icons.Default.SmartToy, "Thinking...")
         state == CallSessionState.RECONNECTING -> Quadruple(Color(0xFF78350F), Color(0xFFFDE68A), Icons.Outlined.Warning, "Reconnecting")
         else -> Quadruple(Color(0xFF065F46), Color(0xFFA7F3D0), Icons.Default.Mic, "Listening")
     }
@@ -1041,7 +1042,7 @@ fun LiveTranscriptBox(
                             border = if (isAssistant) androidx.compose.foundation.BorderStroke(1.dp, CallMateCyan.copy(alpha = 0.3f)) else null
                         ) {
                             Text(
-                                text = turn.text,
+                                text = com.aicallassistant.app.ui.screens.detail.formatChatBubbleText(turn.text),
                                 fontSize = 13.sp,
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                                 color = Color.White

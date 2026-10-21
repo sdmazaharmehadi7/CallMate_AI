@@ -17,6 +17,7 @@ import kotlinx.coroutines.launch
 
 data class ActionItemsUiState(
     val isLoading: Boolean = false,
+    val isRefreshing: Boolean = false,
     val actionItems: List<ActionItem> = emptyList(),
     val errorMessage: String? = null
 )
@@ -42,8 +43,12 @@ class ActionItemsViewModel(
         }
     }
 
-    fun loadActionItems() {
-        _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
+    fun loadActionItems(isRefresh: Boolean = false) {
+        if (isRefresh) {
+            _uiState.value = _uiState.value.copy(isRefreshing = true)
+        } else {
+            _uiState.value = _uiState.value.copy(isLoading = (_uiState.value.actionItems.isEmpty()), errorMessage = null)
+        }
         viewModelScope.launch {
             // First fetch the latest calls to collect all action items
             when (val callsRes = callRepository.getCalls(limit = 50, offset = 0)) {
@@ -58,6 +63,7 @@ class ActionItemsViewModel(
                     }
                     _uiState.value = ActionItemsUiState(
                         isLoading = false,
+                        isRefreshing = false,
                         actionItems = aggregatedItems.sortedByDescending { it.createdAt },
                         errorMessage = null
                     )
@@ -65,6 +71,7 @@ class ActionItemsViewModel(
                 is NetworkResult.Error -> {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
+                        isRefreshing = false,
                         errorMessage = callsRes.message
                     )
                 }

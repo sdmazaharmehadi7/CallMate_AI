@@ -366,17 +366,14 @@ class VoiceSession:
         if not text:
             return
 
-        # If previous turn was from same speaker, aggregate text cleanly
+        # If previous turn was from same speaker, aggregate streaming token pieces directly without injecting artificial spaces
         if self.transcripts and self.transcripts[-1]["speaker"] == speaker:
             prev = self.transcripts[-1]["text"]
-            if prev.endswith(" ") or text.startswith(" "):
-                self.transcripts[-1]["text"] = f"{prev}{text}".strip()
-            else:
-                self.transcripts[-1]["text"] = f"{prev} {text}".strip()
+            self.transcripts[-1]["text"] = f"{prev}{text}"
         else:
             self.transcripts.append({
                 "speaker": speaker,
-                "text": text.strip(),
+                "text": text,
                 "timestamp_ms": self._current_elapsed_ms(),
                 "sequence_order": self._next_sequence,
             })

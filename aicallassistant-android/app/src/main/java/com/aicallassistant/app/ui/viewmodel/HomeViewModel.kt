@@ -27,6 +27,7 @@ enum class ChatDateFilter(val label: String) {
 
 data class HomeUiState(
     val isLoading: Boolean = false,
+    val isRefreshing: Boolean = false,
     val userProfile: UserProfile? = null,
     val recentCalls: List<CallItem> = emptyList(),
     val chatThreads: List<ChatThreadItem> = emptyList(),
@@ -66,7 +67,9 @@ class HomeViewModel(
     }
 
     fun loadDashboardData(isRefresh: Boolean = false) {
-        if (!isRefresh) {
+        if (isRefresh) {
+            _uiState.value = _uiState.value.copy(isRefreshing = true)
+        } else {
             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
         }
         viewModelScope.launch {
@@ -84,6 +87,7 @@ class HomeViewModel(
 
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
+                        isRefreshing = false,
                         userProfile = profile,
                         recentCalls = calls,
                         chatThreads = threads,
@@ -99,6 +103,7 @@ class HomeViewModel(
                 is NetworkResult.Error -> {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
+                        isRefreshing = false,
                         userProfile = profile,
                         errorMessage = callsResult.message
                     )

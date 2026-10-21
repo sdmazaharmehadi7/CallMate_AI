@@ -72,17 +72,17 @@ class DefaultAudioCaptureManager(
         }
         val bufferSize = maxOf(minBufferSize, FRAME_BYTES * 2)
 
-        // 3. Initialize AudioRecord
+        // 3. Initialize AudioRecord with clean VOICE_RECOGNITION source (crystal clear speech without AGC ducking)
         val record = try {
             AudioRecord(
-                MediaRecorder.AudioSource.VOICE_COMMUNICATION,
+                MediaRecorder.AudioSource.VOICE_RECOGNITION,
                 SAMPLE_RATE,
                 CHANNEL_CONFIG,
                 AUDIO_FORMAT,
                 bufferSize
             )
         } catch (e: Exception) {
-            Log.w(TAG, "VOICE_COMMUNICATION source failed, falling back to MIC source: ${e.message}")
+            Log.w(TAG, "VOICE_RECOGNITION source failed, falling back to MIC source: ${e.message}")
             try {
                 AudioRecord(
                     MediaRecorder.AudioSource.MIC,

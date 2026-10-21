@@ -66,4 +66,74 @@ object AppConfig {
                 supabaseUrl.isNotBlank() &&
                 !supabaseUrl.contains("placeholder")
     }
+
+    // --- User Personal Details & Settings Persistence ---
+    private const val KEY_USER_FULL_NAME = "user_full_name"
+    private const val KEY_USER_GENDER = "user_gender"
+    private const val KEY_USER_ADDRESSES = "user_addresses"
+    private const val KEY_CUSTOM_INSTRUCTIONS = "custom_instructions"
+    private const val KEY_SELECTED_VOICE = "selected_voice"
+
+    fun getUserFullName(fallback: String = "Sayyad Mazahar"): String {
+        return sharedPreferences?.getString(KEY_USER_FULL_NAME, null) ?: fallback
+    }
+
+    fun setUserFullName(name: String) {
+        sharedPreferences?.edit()?.putString(KEY_USER_FULL_NAME, name.trim())?.apply()
+    }
+
+    fun getUserGender(): String {
+        return sharedPreferences?.getString(KEY_USER_GENDER, "Male") ?: "Male"
+    }
+
+    fun setUserGender(gender: String) {
+        sharedPreferences?.edit()?.putString(KEY_USER_GENDER, gender.trim())?.apply()
+    }
+
+    fun getUserAddresses(): List<String> {
+        val raw = sharedPreferences?.getString(KEY_USER_ADDRESSES, null)
+        return if (!raw.isNullOrBlank()) {
+            raw.split(";;").filter { it.isNotBlank() }
+        } else {
+            listOf("Home: Hyderabad, India", "Office: Hi-Tech City, Hyderabad")
+        }
+    }
+
+    fun setUserAddresses(addresses: List<String>) {
+        val joined = addresses.joinToString(";;")
+        sharedPreferences?.edit()?.putString(KEY_USER_ADDRESSES, joined)?.apply()
+    }
+
+    fun addUserAddress(address: String) {
+        val current = getUserAddresses().toMutableList()
+        if (!current.contains(address.trim())) {
+            current.add(address.trim())
+            setUserAddresses(current)
+        }
+    }
+
+    fun removeUserAddress(address: String) {
+        val current = getUserAddresses().toMutableList()
+        current.remove(address.trim())
+        setUserAddresses(current)
+    }
+
+    fun getCustomInstructions(): String {
+        return sharedPreferences?.getString(
+            KEY_CUSTOM_INSTRUCTIONS,
+            "Manage my unknown callers politely, identify their purpose, take a message, and let them know Sayyad will respond."
+        ) ?: "Manage my unknown callers politely, identify their purpose, take a message, and let them know Sayyad will respond."
+    }
+
+    fun setCustomInstructions(instructions: String) {
+        sharedPreferences?.edit()?.putString(KEY_CUSTOM_INSTRUCTIONS, instructions.trim())?.apply()
+    }
+
+    fun getSelectedVoice(): String {
+        return sharedPreferences?.getString(KEY_SELECTED_VOICE, "Aoede (Warm & Professional)") ?: "Aoede (Warm & Professional)"
+    }
+
+    fun setSelectedVoice(voice: String) {
+        sharedPreferences?.edit()?.putString(KEY_SELECTED_VOICE, voice.trim())?.apply()
+    }
 }

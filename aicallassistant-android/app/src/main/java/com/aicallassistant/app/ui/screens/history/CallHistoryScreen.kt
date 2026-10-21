@@ -115,8 +115,8 @@ fun CallHistoryScreen(
         }
     ) { padding ->
         PullToRefreshBox(
-            isRefreshing = uiState.isLoading,
-            onRefresh = { viewModel.loadCalls(reset = true) },
+            isRefreshing = uiState.isRefreshing,
+            onRefresh = { viewModel.loadCalls(isRefresh = true) },
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
@@ -359,8 +359,9 @@ fun CallHistoryCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = EqualDarkCard),
+        border = androidx.compose.foundation.BorderStroke(1.dp, com.aicallassistant.app.ui.theme.CallMateBorder),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.padding(14.dp)) {

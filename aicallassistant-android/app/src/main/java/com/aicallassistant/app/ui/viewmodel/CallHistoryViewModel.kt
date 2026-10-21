@@ -15,6 +15,7 @@ import kotlinx.coroutines.launch
 
 data class CallHistoryUiState(
     val isLoading: Boolean = false,
+    val isRefreshing: Boolean = false,
     val isPaginating: Boolean = false,
     val calls: List<CallItem> = emptyList(),
     val totalCount: Int = 0,
@@ -63,8 +64,11 @@ class CallHistoryViewModel(
         loadCalls(reset = true)
     }
 
-    fun loadCalls(reset: Boolean = false) {
-        if (reset) {
+    fun loadCalls(reset: Boolean = false, isRefresh: Boolean = false) {
+        if (isRefresh) {
+            currentOffset = 0
+            _uiState.value = _uiState.value.copy(isRefreshing = true, errorMessage = null)
+        } else if (reset) {
             currentOffset = 0
             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
         } else {
@@ -91,10 +95,11 @@ class CallHistoryViewModel(
             when (result) {
                 is NetworkResult.Success -> {
                     val (newCalls, total) = result.data
-                    val updatedList = if (reset) newCalls else _uiState.value.calls + newCalls
+                    val updatedList = if (reset || isRefresh) newCalls else _uiState.value.calls + newCalls
                     currentOffset = updatedList.size
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
+                        isRefreshing = false,
                         isPaginating = false,
                         calls = updatedList,
                         totalCount = total,
@@ -104,6 +109,7 @@ class CallHistoryViewModel(
                 is NetworkResult.Error -> {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
+                        isRefreshing = false,
                         isPaginating = false,
                         errorMessage = result.message
                     )

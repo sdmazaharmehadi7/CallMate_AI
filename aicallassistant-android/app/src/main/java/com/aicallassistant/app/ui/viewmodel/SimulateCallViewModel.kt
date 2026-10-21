@@ -177,14 +177,14 @@ class SimulateCallViewModel(
 
                     // 5. Start audio capture with acoustic echo suppression and local recording
                     val captureResult = audioCaptureManager?.startCapture { pcmChunk ->
-                        // Record caller speech locally into full conversation audio file
-                        LocalRecordingManager.appendAudio(result.callId, pcmChunk)
+                        val currentState = _uiState.value.sessionState
+                        val isMuted = _uiState.value.isMuted
 
-                        if (voiceSessionClient.isConnected()) {
-                            val currentState = _uiState.value.sessionState
-                            val isMuted = _uiState.value.isMuted
-                            // Prevent echo feedback: do not send mic frames while AI speaks out of loudspeaker
-                            if (currentState != CallSessionState.AI_SPEAKING && !isMuted) {
+                        // Prevent echo feedback & audio interleaving: only capture & record caller speech when AI is not speaking
+                        if (currentState != CallSessionState.AI_SPEAKING && !isMuted) {
+                            LocalRecordingManager.appendAudio(result.callId, pcmChunk)
+
+                            if (voiceSessionClient.isConnected()) {
                                 val elapsed = System.currentTimeMillis() - sessionStartTimeMs
                                 viewModelScope.launch {
                                     voiceSessionClient.sendAudio(pcmChunk, elapsed)
@@ -245,16 +245,22 @@ class SimulateCallViewModel(
                 val lastTurn = turns.lastOrNull()
 
                 if (lastTurn != null && lastTurn.speaker == speakerType && !lastTurn.isFinal) {
-                    val glue = if (lastTurn.text.endsWith(" ") || event.text.startsWith(" ")) "" else " "
+                    val rawCombined = lastTurn.text + event.text
+                    // Clean up trailing/leading and spaced punctuation (e.g. "Ya ," -> "Ya,")
+                    val cleaned = if (event.isFinal) {
+                        rawCombined.replace(Regex("""\s+([,.:;?!])"""), "$1").replace(Regex("""\s{2,}"""), " ").trim()
+                    } else {
+                        rawCombined
+                    }
                     turns[turns.lastIndex] = lastTurn.copy(
-                        text = (lastTurn.text + glue + event.text).trim(),
+                        text = cleaned,
                         isFinal = event.isFinal
                     )
                 } else {
                     turns.add(
                         LiveTranscriptTurn(
                             speaker = speakerType,
-                            text = event.text.trim(),
+                            text = event.text,
                             isFinal = event.isFinal,
                             timestampMs = event.timestampMs
                         )

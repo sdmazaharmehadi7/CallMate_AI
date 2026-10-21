@@ -1,6 +1,8 @@
 package com.aicallassistant.app.ui.screens.actionitems
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -88,8 +90,8 @@ fun ActionItemsScreen(
         }
     ) { padding ->
         PullToRefreshBox(
-            isRefreshing = uiState.isLoading,
-            onRefresh = { viewModel.loadActionItems() },
+            isRefreshing = uiState.isRefreshing,
+            onRefresh = { viewModel.loadActionItems(isRefresh = true) },
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
@@ -166,8 +168,13 @@ fun ActionItemRow(
     onDelete: () -> Unit
 ) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(
+                BorderStroke(1.dp, com.aicallassistant.app.ui.theme.CallMateBorder),
+                RoundedCornerShape(18.dp)
+            ),
+        shape = RoundedCornerShape(18.dp),
         color = EqualDarkCard
     ) {
         Row(

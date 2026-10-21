@@ -122,6 +122,115 @@ fun UserProfileAvatar(
 }
 
 /**
+ * Illustrated female user profile avatar matching the provided reference screenshot
+ * (Olive/Lime circular backdrop, dark wavy parted hair, warm skin tone, teal/green shirt).
+ */
+@Composable
+fun FemaleUserProfileAvatar(
+    modifier: Modifier = Modifier,
+    size: Dp = 56.dp
+) {
+    Box(
+        modifier = modifier
+            .size(size)
+            .clip(CircleShape)
+            .background(
+                Brush.radialGradient(
+                    colors = listOf(Color(0xFFB5E853), Color(0xFF83C324))
+                )
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(modifier = Modifier.size(size)) {
+            val w = this.size.width
+            val h = this.size.height
+
+            // Head / Face
+            val faceRadius = w * 0.27f
+            val faceCenter = Offset(w * 0.5f, h * 0.44f)
+            drawCircle(
+                color = Color(0xFFC67D5A),
+                radius = faceRadius,
+                center = faceCenter
+            )
+
+            // Hair (flowing dark brown hair)
+            drawCircle(
+                color = Color(0xFF3E2312),
+                radius = w * 0.26f,
+                center = Offset(w * 0.5f, h * 0.22f)
+            )
+            // Left hair fall
+            drawCircle(
+                color = Color(0xFF3E2312),
+                radius = w * 0.18f,
+                center = Offset(w * 0.28f, h * 0.36f)
+            )
+            // Right hair fall
+            drawCircle(
+                color = Color(0xFF3E2312),
+                radius = w * 0.18f,
+                center = Offset(w * 0.72f, h * 0.36f)
+            )
+            // Lower locks
+            drawRoundRect(
+                color = Color(0xFF3E2312),
+                topLeft = Offset(w * 0.20f, h * 0.42f),
+                size = Size(w * 0.16f, h * 0.28f),
+                cornerRadius = CornerRadius(w * 0.08f, w * 0.08f)
+            )
+            drawRoundRect(
+                color = Color(0xFF3E2312),
+                topLeft = Offset(w * 0.64f, h * 0.42f),
+                size = Size(w * 0.16f, h * 0.28f),
+                cornerRadius = CornerRadius(w * 0.08f, w * 0.08f)
+            )
+
+            // Eyes
+            drawCircle(
+                color = Color(0xFF1E130B),
+                radius = w * 0.032f,
+                center = Offset(w * 0.43f, h * 0.43f)
+            )
+            drawCircle(
+                color = Color(0xFF1E130B),
+                radius = w * 0.032f,
+                center = Offset(w * 0.57f, h * 0.43f)
+            )
+
+            // Smile
+            drawRoundRect(
+                color = Color(0xFF9E483A),
+                topLeft = Offset(w * 0.44f, h * 0.55f),
+                size = Size(w * 0.12f, h * 0.04f),
+                cornerRadius = CornerRadius(w * 0.02f, w * 0.02f)
+            )
+
+            // Teal/Green Top
+            drawRoundRect(
+                color = Color(0xFF0D5C58),
+                topLeft = Offset(w * 0.22f, h * 0.73f),
+                size = Size(w * 0.56f, h * 0.35f),
+                cornerRadius = CornerRadius(w * 0.12f, w * 0.12f)
+            )
+        }
+    }
+}
+
+@Composable
+fun UserGenderAvatar(
+    gender: String,
+    modifier: Modifier = Modifier,
+    size: Dp = 56.dp
+) {
+    if (gender.equals("female", ignoreCase = true)) {
+        FemaleUserProfileAvatar(modifier = modifier, size = size)
+    } else {
+        UserProfileAvatar(modifier = modifier, size = size)
+    }
+}
+
+/**
  * Caller Avatar matching the reference screenshot:
  * - Equal AI Assistant: Vibrant Lime-green with dots / robot icon
  * - Phone contacts: Warm retro red phone icon with rounded soft backdrop

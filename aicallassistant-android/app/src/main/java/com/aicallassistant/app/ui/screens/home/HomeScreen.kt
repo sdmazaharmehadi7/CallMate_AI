@@ -1,7 +1,5 @@
 package com.aicallassistant.app.ui.screens.home
 
-import android.content.Intent
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -22,23 +20,18 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.NotificationsOff
-import androidx.compose.material.icons.filled.PhoneInTalk
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SmartToy
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.outlined.Inbox
-import androidx.compose.material.icons.outlined.VolumeOff
-import androidx.compose.material.icons.outlined.VolumeUp
+import androidx.compose.material.icons.outlined.Call
+import androidx.compose.material.icons.outlined.Phone
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
@@ -59,33 +52,30 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.aicallassistant.app.R
+import com.aicallassistant.app.core.config.AppConfig
 import com.aicallassistant.app.core.util.DateUtils
 import com.aicallassistant.app.domain.model.CallItem
 import com.aicallassistant.app.domain.model.ChatThreadItem
 import com.aicallassistant.app.ui.components.CallerAvatar
 import com.aicallassistant.app.ui.components.InstagramSkeletonChatList
-import com.aicallassistant.app.ui.components.UserProfileAvatar
 import com.aicallassistant.app.ui.components.UrgencyBadge
-import com.aicallassistant.app.ui.theme.EqualDarkBg
-import com.aicallassistant.app.ui.theme.EqualDarkBorder
-import com.aicallassistant.app.ui.theme.EqualDarkCard
-import com.aicallassistant.app.ui.theme.EqualDarkSurface
-import com.aicallassistant.app.ui.theme.EqualGreen
-import com.aicallassistant.app.ui.theme.EqualGreenDim
-import com.aicallassistant.app.ui.theme.EqualGreenText
-import com.aicallassistant.app.ui.theme.EqualTextPrimary
-import com.aicallassistant.app.ui.theme.EqualTextSecondary
-import com.aicallassistant.app.ui.theme.TealPrimary
+import com.aicallassistant.app.ui.components.UserGenderAvatar
+import com.aicallassistant.app.ui.theme.CallMateActive
+import com.aicallassistant.app.ui.theme.CallMateBadgeGold
+import com.aicallassistant.app.ui.theme.CallMateBorder
+import com.aicallassistant.app.ui.theme.CallMateCanvas
+import com.aicallassistant.app.ui.theme.CallMateCard
+import com.aicallassistant.app.ui.theme.CallMateCardElevated
+import com.aicallassistant.app.ui.theme.CallMateInk
+import com.aicallassistant.app.ui.theme.CallMatePrimary
+import com.aicallassistant.app.ui.theme.CallMateSlate
+import com.aicallassistant.app.ui.theme.CallMateSurface
 import com.aicallassistant.app.ui.viewmodel.ChatDateFilter
 import com.aicallassistant.app.ui.viewmodel.HomeViewModel
 
@@ -98,10 +88,9 @@ fun HomeScreen(
     onNavigateToHistory: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val context = LocalContext.current
 
     Scaffold(
-        containerColor = EqualDarkBg,
+        containerColor = CallMateCanvas,
         topBar = {
             TopAppBar(
                 title = {
@@ -109,192 +98,193 @@ fun HomeScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.padding(vertical = 4.dp)
                     ) {
-                        // Brand Logo (6 green dots + equal ai)
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Column(
-                                modifier = Modifier.padding(end = 6.dp),
-                                verticalArrangement = Arrangement.spacedBy(3.dp)
-                            ) {
-                                Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                                    Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(EqualGreen))
-                                    Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(EqualGreen))
-                                    Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(EqualGreen))
-                                }
-                                Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                                    Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(EqualGreen))
-                                    Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(EqualGreen))
-                                    Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(EqualGreen))
-                                }
-                            }
-                            Text(
-                                text = "equal ai",
-                                fontSize = 22.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = EqualGreen
+                        // White rounded squircle icon with black telephone
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Color.White),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.SmartToy,
+                                contentDescription = null,
+                                tint = Color.Black,
+                                modifier = Modifier.size(20.dp)
                             )
                         }
+
+                        Spacer(modifier = Modifier.width(10.dp))
+
+                        Text(
+                            text = "CallMate AI",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = CallMateInk
+                        )
                     }
                 },
                 actions = {
-                    // Profile avatar and username pill
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(end = 12.dp)
-                    ) {
-                        Column(horizontalAlignment = Alignment.End) {
-                            Text(
-                                text = uiState.userProfile?.fullName ?: "Sayyad",
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = EqualTextPrimary
-                            )
-                            Text(
-                                text = "@sayyadmazahar",
-                                fontSize = 10.sp,
-                                color = EqualTextSecondary
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        UserProfileAvatar(size = 36.dp)
+                    // Profile avatar matching user's selected gender
+                    Box(modifier = Modifier.padding(end = 16.dp)) {
+                        UserGenderAvatar(
+                            gender = AppConfig.getUserGender(),
+                            size = 36.dp
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = EqualDarkBg,
-                    titleContentColor = EqualTextPrimary
+                    containerColor = CallMateCanvas,
+                    titleContentColor = CallMateInk
                 )
-            )
-        },
-        floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = onNavigateToSimulateCall,
-                containerColor = EqualGreen,
-                contentColor = Color(0xFF0F141C),
-                icon = { Icon(Icons.Default.PhoneInTalk, contentDescription = "Simulate") },
-                text = { Text("Simulate Call", fontWeight = FontWeight.Bold) },
-                shape = RoundedCornerShape(28.dp)
             )
         }
     ) { padding ->
         PullToRefreshBox(
-            isRefreshing = uiState.isLoading,
+            isRefreshing = uiState.isRefreshing,
             onRefresh = { viewModel.loadDashboardData(isRefresh = true) },
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .background(EqualDarkBg)
+                .background(CallMateCanvas)
         ) {
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
-                contentPadding = PaddingValues(top = 8.dp, bottom = 90.dp)
+                contentPadding = PaddingValues(top = 8.dp, bottom = 95.dp)
             ) {
-                // 1. AI Assistant is On Toggle Card (Matching Screenshot 3)
+                // 1. Prominent White Simulate Call Button (Matching Mockup)
                 item {
-                    AssistantStatusToggleCard(
+                    Button(
+                        onClick = onNavigateToSimulateCall,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp),
+                        shape = RoundedCornerShape(18.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.White,
+                            contentColor = Color.Black
+                        ),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.PlayArrow,
+                                contentDescription = null,
+                                tint = Color.Black,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Simulate call",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.Black
+                            )
+                        }
+                    }
+                }
+
+                // 2. Assistant is on Card (Matching Mockup)
+                item {
+                    MockupAssistantCard(
                         isOn = uiState.isAssistantOn,
                         onToggle = { viewModel.toggleAssistant(it) }
                     )
                 }
 
-                // 2. Referral Invite Card (Matching Screenshot 3)
+                // 3. Search Bar (Matching Mockup)
                 item {
-                    ReferralBannerCard(
-                        onInviteClick = {
-                            val sendIntent = Intent().apply {
-                                action = Intent.ACTION_SEND
-                                putExtra(
-                                    Intent.EXTRA_TEXT,
-                                    "Join me on CallMate Equal AI — Let your AI assistant answer and screen unknown calls with live voice! Download: https://callmate.ai"
-                                )
-                                type = "text/plain"
+                    OutlinedTextField(
+                        value = uiState.searchQuery,
+                        onValueChange = { viewModel.onSearchQueryChange(it) },
+                        placeholder = {
+                            Text(
+                                "Search by name or number",
+                                color = CallMateSlate,
+                                fontSize = 13.sp
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.Search,
+                                contentDescription = "Search",
+                                tint = CallMateSlate
+                            )
+                        },
+                        trailingIcon = {
+                            if (uiState.searchQuery.isNotBlank()) {
+                                IconButton(onClick = { viewModel.onSearchQueryChange("") }) {
+                                    Icon(
+                                        Icons.Default.Clear,
+                                        contentDescription = "Clear",
+                                        tint = CallMateSlate
+                                    )
+                                }
                             }
-                            context.startActivity(Intent.createChooser(sendIntent, "Invite a Friend"))
-                        }
+                        },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = CallMateInk,
+                            unfocusedTextColor = CallMateInk,
+                            focusedBorderColor = CallMatePrimary,
+                            unfocusedBorderColor = CallMateBorder,
+                            focusedContainerColor = CallMateCard,
+                            unfocusedContainerColor = CallMateCard,
+                            cursorColor = CallMatePrimary
+                        ),
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
 
-                // 3. Search and Date Filter Section
+                // 4. Filter Chips: All, Today, Yesterday, This week (Matching Mockup)
                 item {
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        // Search Input
-                        OutlinedTextField(
-                            value = uiState.searchQuery,
-                            onValueChange = { viewModel.onSearchQueryChange(it) },
-                            placeholder = {
-                                Text(
-                                    "Search by caller name, number...",
-                                    color = EqualTextSecondary,
-                                    fontSize = 13.sp
-                                )
-                            },
-                            leadingIcon = {
-                                Icon(
-                                    Icons.Default.Search,
-                                    contentDescription = "Search",
-                                    tint = TealPrimary
-                                )
-                            },
-                            trailingIcon = {
-                                if (uiState.searchQuery.isNotBlank()) {
-                                    IconButton(onClick = { viewModel.onSearchQueryChange("") }) {
-                                        Icon(
-                                            Icons.Default.Clear,
-                                            contentDescription = "Clear",
-                                            tint = EqualTextSecondary
-                                        )
-                                    }
-                                }
-                            },
-                            singleLine = true,
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedTextColor = EqualTextPrimary,
-                                unfocusedTextColor = EqualTextPrimary,
-                                focusedBorderColor = TealPrimary,
-                                unfocusedBorderColor = EqualDarkBorder,
-                                focusedContainerColor = EqualDarkCard,
-                                unfocusedContainerColor = EqualDarkCard,
-                                cursorColor = TealPrimary
-                            ),
-                            shape = RoundedCornerShape(14.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        )
+                    val filterOptions = listOf(
+                        ChatDateFilter.ALL to "All",
+                        ChatDateFilter.TODAY to "Today",
+                        ChatDateFilter.YESTERDAY to "Yesterday",
+                        ChatDateFilter.THIS_WEEK to "This week"
+                    )
 
-                        // Date Filter Chips
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            items(ChatDateFilter.entries) { filter ->
-                                val isSelected = uiState.selectedDateFilter == filter
-                                FilterChip(
-                                    selected = isSelected,
-                                    onClick = { viewModel.onDateFilterSelect(filter) },
-                                    label = {
-                                        Text(
-                                            text = filter.label,
-                                            fontSize = 12.sp,
-                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                                        )
-                                    },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = TealPrimary,
-                                        selectedLabelColor = Color(0xFF0F141C),
-                                        containerColor = EqualDarkCard,
-                                        labelColor = EqualTextSecondary
-                                    ),
-                                    border = FilterChipDefaults.filterChipBorder(
-                                        enabled = true,
-                                        selected = isSelected,
-                                        borderColor = if (isSelected) TealPrimary else EqualDarkBorder
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(filterOptions) { (filter, label) ->
+                            val isSelected = uiState.selectedDateFilter == filter
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = { viewModel.onDateFilterSelect(filter) },
+                                label = {
+                                    Text(
+                                        text = label,
+                                        fontSize = 12.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                                     )
+                                },
+                                shape = RoundedCornerShape(20.dp),
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = Color.White,
+                                    selectedLabelColor = Color.Black,
+                                    containerColor = CallMateCard,
+                                    labelColor = CallMateInk
+                                ),
+                                border = FilterChipDefaults.filterChipBorder(
+                                    enabled = true,
+                                    selected = isSelected,
+                                    borderColor = if (isSelected) Color.White else CallMateBorder
                                 )
-                            }
+                            )
                         }
                     }
                 }
 
-                // 4. Section Header "CHATS"
+                // 5. Section Header "Screened calls" (Matching Mockup)
                 item {
                     Row(
                         modifier = Modifier
@@ -304,24 +294,23 @@ fun HomeScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "CHATS",
-                            fontSize = 13.sp,
+                            text = "Screened calls",
+                            fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
-                            color = EqualTextSecondary,
-                            letterSpacing = 1.sp
+                            color = CallMateInk
                         )
 
                         if (uiState.filteredThreads.isNotEmpty()) {
                             Text(
-                                text = "${uiState.filteredThreads.size} conversations",
-                                fontSize = 11.sp,
-                                color = TealPrimary
+                                text = "${uiState.filteredThreads.size}",
+                                fontSize = 12.sp,
+                                color = CallMateSlate
                             )
                         }
                     }
                 }
 
-                // 5. Chat List or Skeleton Shimmer Loading
+                // 6. Empty State or Filtered Threads
                 when {
                     uiState.isLoading && uiState.chatThreads.isEmpty() -> {
                         item {
@@ -331,40 +320,54 @@ fun HomeScreen(
 
                     uiState.filteredThreads.isEmpty() -> {
                         item {
+                            // Empty State Box exactly matching Mockup
                             Surface(
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(16.dp),
-                                color = EqualDarkCard
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp),
+                                shape = RoundedCornerShape(20.dp),
+                                color = CallMateCard,
+                                border = androidx.compose.foundation.BorderStroke(1.dp, CallMateBorder)
                             ) {
                                 Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(28.dp),
+                                        .padding(horizontal = 24.dp, vertical = 40.dp),
                                     horizontalAlignment = Alignment.CenterHorizontally
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.Inbox,
-                                        contentDescription = null,
-                                        tint = EqualGreen.copy(alpha = 0.5f),
-                                        modifier = Modifier.size(48.dp)
-                                    )
-                                    Spacer(modifier = Modifier.height(12.dp))
+                                    // Circular dark container with blue phone
+                                    Box(
+                                        modifier = Modifier
+                                            .size(54.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFF181818)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Outlined.Call,
+                                            contentDescription = null,
+                                            tint = CallMatePrimary,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.height(16.dp))
+
                                     Text(
-                                        text = if (uiState.searchQuery.isNotBlank()) "No matching chats found" else "No screened chats yet",
+                                        text = "No screened calls yet",
                                         fontWeight = FontWeight.Bold,
-                                        color = EqualTextPrimary,
+                                        color = CallMateInk,
                                         fontSize = 15.sp
                                     )
-                                    Spacer(modifier = Modifier.height(6.dp))
+
+                                    Spacer(modifier = Modifier.height(8.dp))
+
                                     Text(
-                                        text = if (uiState.searchQuery.isNotBlank()) {
-                                            "Try adjusting your query or date filter."
-                                        } else {
-                                            "Tap 'Simulate Call' to test an incoming call. Your Equal Assistant will screen it and group all calls by contact here."
-                                        },
+                                        text = "Tap Simulate call to test an incoming call. CallMate AI will screen it and group calls by contact here.",
                                         fontSize = 12.sp,
-                                        color = EqualTextSecondary,
-                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                        color = CallMateSlate,
+                                        textAlign = TextAlign.Center,
+                                        lineHeight = 18.sp
                                     )
                                 }
                             }
@@ -372,7 +375,7 @@ fun HomeScreen(
                     }
 
                     else -> {
-                        // Render WhatsApp-style chat rows grouped by contact
+                        // Contact Threads List
                         items(uiState.filteredThreads, key = { it.callerNumber }) { thread ->
                             ChatThreadRow(
                                 thread = thread,
@@ -388,24 +391,22 @@ fun HomeScreen(
 }
 
 /**
- * Assistant Status Toggle Card matching reference screenshot:
- * - Glowing lime switch
- * - Robot phone avatar
- * - Subtitle: "Equal is managing your unknown calls!"
+ * Assistant Switch Card matching mockup:
+ * - Rounded dark card
+ * - Robot squircle icon in Primary Blue (#3291FF)
+ * - "Assistant is on" / "Screening unknown calls"
+ * - Active Green switch (#0CCE6B)
  */
 @Composable
-fun AssistantStatusToggleCard(
+fun MockupAssistantCard(
     isOn: Boolean,
     onToggle: (Boolean) -> Unit
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        color = Color(0xFF131D19),
-        border = androidx.compose.foundation.BorderStroke(
-            1.dp,
-            if (isOn) EqualGreenDim.copy(alpha = 0.4f) else EqualDarkBorder
-        )
+        shape = RoundedCornerShape(18.dp),
+        color = CallMateCard,
+        border = androidx.compose.foundation.BorderStroke(1.dp, CallMateBorder)
     ) {
         Row(
             modifier = Modifier
@@ -418,19 +419,19 @@ fun AssistantStatusToggleCard(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.weight(1f)
             ) {
-                // Robot icon badge with green glow
+                // Blue squircle robot badge
                 Box(
                     modifier = Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(if (isOn) EqualGreen.copy(alpha = 0.2f) else EqualDarkCard),
+                        .size(42.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFF0F172A)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.SmartToy,
                         contentDescription = null,
-                        tint = if (isOn) EqualGreen else EqualTextSecondary,
-                        modifier = Modifier.size(26.dp)
+                        tint = CallMatePrimary,
+                        modifier = Modifier.size(22.dp)
                     )
                 }
 
@@ -438,16 +439,16 @@ fun AssistantStatusToggleCard(
 
                 Column {
                     Text(
-                        text = if (isOn) "AI Assistant is On" else "AI Assistant is Off",
+                        text = if (isOn) "Assistant is on" else "Assistant is off",
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
-                        color = EqualTextPrimary
+                        color = CallMateInk
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = if (isOn) "Equal is managing your unknown calls!" else "Calls will not be automatically screened",
+                        text = if (isOn) "Screening unknown calls" else "Calls will not be screened",
                         fontSize = 12.sp,
-                        color = EqualTextSecondary
+                        color = CallMateSlate
                     )
                 }
             }
@@ -458,10 +459,10 @@ fun AssistantStatusToggleCard(
                 checked = isOn,
                 onCheckedChange = onToggle,
                 colors = SwitchDefaults.colors(
-                    checkedThumbColor = EqualGreen,
-                    checkedTrackColor = Color(0xFF223114),
-                    uncheckedThumbColor = Color(0xFF64748B),
-                    uncheckedTrackColor = Color(0xFF1E293B)
+                    checkedThumbColor = Color.White,
+                    checkedTrackColor = CallMateActive,
+                    uncheckedThumbColor = CallMateSlate,
+                    uncheckedTrackColor = Color(0xFF1E1E1E)
                 )
             )
         }
@@ -469,135 +470,7 @@ fun AssistantStatusToggleCard(
 }
 
 /**
- * Referral / Invite Card matching Screenshot 3
- */
-@Composable
-fun ReferralBannerCard(
-    onInviteClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF1F2433)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Column(modifier = Modifier.padding(18.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    // Star REFER badge
-                    Surface(
-                        shape = RoundedCornerShape(10.dp),
-                        color = Color(0xFF2C2F40)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Star,
-                                contentDescription = null,
-                                tint = Color(0xFFFBBF24),
-                                modifier = Modifier.size(12.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "REFER",
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Text(
-                        text = "Invite a Friend",
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    Text(
-                        text = "Give them the same superpower you have",
-                        fontSize = 12.sp,
-                        color = Color(0xFF94A3B8)
-                    )
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    Button(
-                        onClick = onInviteClick,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF7C66DC),
-                            contentColor = Color.White
-                        ),
-                        shape = RoundedCornerShape(20.dp),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Star,
-                            contentDescription = null,
-                            modifier = Modifier.size(14.dp),
-                            tint = Color.White
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "Invite Now",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp
-                        )
-                    }
-                }
-
-                // Clapping hands illustration graphic
-                Box(
-                    modifier = Modifier
-                        .size(70.dp)
-                        .clip(CircleShape)
-                        .background(
-                            Brush.linearGradient(
-                                colors = listOf(Color(0xFF2D354E), Color(0xFF1E2235))
-                            )
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(text = "🙌", fontSize = 32.sp)
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Carousel dots
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center
-            ) {
-                Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(Color(0xFF4A5568)))
-                Spacer(modifier = Modifier.width(6.dp))
-                Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(Color(0xFF4A5568)))
-                Spacer(modifier = Modifier.width(6.dp))
-                Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(EqualGreen))
-                Spacer(modifier = Modifier.width(6.dp))
-                Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(Color(0xFF4A5568)))
-            }
-        }
-    }
-}
-
-/**
- * WhatsApp-style Chat thread row (matching Screenshot 3):
- * - Vintage red phone avatar or Equal assistant avatar
- * - Caller name (with verified checkmark for assistant)
- * - Timestamp on right
- * - Summary / latest dialogue snippet
- * - Action chip below: "Mute [Caller] 🔕 >"
+ * WhatsApp-style Chat thread row
  */
 @Composable
 fun ChatThreadRow(
@@ -610,7 +483,8 @@ fun ChatThreadRow(
             .fillMaxWidth()
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = EqualDarkCard),
+        colors = CardDefaults.cardColors(containerColor = CallMateCard),
+        border = androidx.compose.foundation.BorderStroke(1.dp, CallMateBorder),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
@@ -618,11 +492,10 @@ fun ChatThreadRow(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.Top
             ) {
-                // Caller Avatar
                 CallerAvatar(
                     callerName = thread.callerName,
                     callerNumber = thread.callerNumber,
-                    size = 46.dp
+                    size = 44.dp
                 )
 
                 Spacer(modifier = Modifier.width(12.dp))
@@ -633,94 +506,64 @@ fun ChatThreadRow(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text(
-                                text = thread.displayName,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = EqualTextPrimary,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-
-                            // Verified badge if Assistant
-                            val isAssistant = (thread.callerName?.contains("equal", ignoreCase = true) == true) ||
-                                    (thread.callerName?.contains("assistant", ignoreCase = true) == true)
-                            if (isAssistant) {
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Icon(
-                                    imageVector = Icons.Default.CheckCircle,
-                                    contentDescription = "Verified Assistant",
-                                    tint = EqualGreen,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-
-                            if (thread.calls.size > 1) {
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Surface(
-                                    shape = RoundedCornerShape(10.dp),
-                                    color = TealPrimary.copy(alpha = 0.2f)
-                                ) {
-                                    Text(
-                                        text = "${thread.calls.size} calls",
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = TealPrimary,
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                    )
-                                }
-                            }
-                        }
+                        Text(
+                            text = thread.displayName,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = CallMateInk,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
 
                         Text(
                             text = DateUtils.formatChatTimestamp(thread.latestTimestamp),
                             fontSize = 11.sp,
-                            color = EqualTextSecondary
+                            color = CallMateSlate
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(3.dp))
 
                     Text(
                         text = thread.latestSummary ?: "Call recorded without summary",
-                        fontSize = 13.sp,
-                        color = EqualTextSecondary,
+                        fontSize = 12.sp,
+                        color = CallMateSlate,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-            // Action Pill Button (Matching Screenshot 3)
-            Row(modifier = Modifier.padding(start = 58.dp)) {
+            // Action Pill
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 56.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = EqualDarkSurface,
-                    border = androidx.compose.foundation.BorderStroke(1.dp, EqualDarkBorder),
+                    shape = RoundedCornerShape(12.dp),
+                    color = CallMateSurface,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, CallMateBorder),
                     modifier = Modifier.clickable(onClick = onMuteToggle)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
-                    ) {
-                        Text(
-                            text = if (thread.isMuted) "Unmute ${thread.displayName.take(12)}" else "Mute ${thread.displayName.take(12)}",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = if (thread.isMuted) Color(0xFFFBBF24) else EqualTextPrimary
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = if (thread.isMuted) "🔔 >" else "🔕 >",
-                            fontSize = 11.sp
-                        )
-                    }
+                    Text(
+                        text = if (thread.isMuted) "Unmute caller 🔔" else "Mute caller 🔕",
+                        fontSize = 11.sp,
+                        color = if (thread.isMuted) CallMateBadgeGold else CallMateInk,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                    )
+                }
+
+                if (thread.calls.size > 1) {
+                    Text(
+                        text = "${thread.calls.size} calls",
+                        fontSize = 11.sp,
+                        color = CallMatePrimary
+                    )
                 }
             }
         }
@@ -728,7 +571,7 @@ fun ChatThreadRow(
 }
 
 /**
- * Legacy CallItemCard preserved for history and backward compatibility
+ * Backward-compatible CallItemCard for history/other views
  */
 @Composable
 fun CallItemCard(
@@ -740,7 +583,8 @@ fun CallItemCard(
             .fillMaxWidth()
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = EqualDarkCard),
+        colors = CardDefaults.cardColors(containerColor = CallMateCard),
+        border = androidx.compose.foundation.BorderStroke(1.dp, CallMateBorder),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
@@ -764,14 +608,14 @@ fun CallItemCard(
                             text = call.callerName?.ifBlank { null } ?: call.callerNumber,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
-                            color = EqualTextPrimary,
+                            color = CallMateInk,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
                             text = call.callerNumber,
                             fontSize = 11.sp,
-                            color = EqualTextSecondary
+                            color = CallMateSlate
                         )
                     }
                 }
@@ -784,7 +628,7 @@ fun CallItemCard(
             Text(
                 text = call.summary ?: call.callerReason ?: "Call recorded without summary",
                 fontSize = 12.sp,
-                color = EqualTextSecondary,
+                color = CallMateSlate,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
@@ -798,12 +642,12 @@ fun CallItemCard(
                 Text(
                     text = DateUtils.formatChatTimestamp(call.createdAt),
                     fontSize = 11.sp,
-                    color = EqualTextSecondary
+                    color = CallMateSlate
                 )
                 Text(
                     text = DateUtils.formatDuration(call.durationSeconds),
                     fontSize = 11.sp,
-                    color = TealPrimary
+                    color = CallMatePrimary
                 )
             }
         }

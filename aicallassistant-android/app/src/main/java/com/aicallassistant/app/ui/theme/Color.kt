@@ -3,77 +3,88 @@ package com.aicallassistant.app.ui.theme
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 
-// CallMate Brand Colors (Matching User-Provided Logo)
-val CallMateNavyBg = Color(0xFF080B27)
-val CallMateNavySurface = Color(0xFF0D1126)
-val CallMateNavyElevated = Color(0xFF141A36)
-val CallMateNavyBorder = Color(0xFF1F274E)
+// CallMate Brand Colors (Unified Black and Blue Theme)
+val CallMateNavyBg = Color(0xFF000000) // Pure Black Canvas (#000000)
+val CallMateNavySurface = Color(0xFF0A0A0A) // Deep Surface (#0A0A0A)
+val CallMateNavyElevated = Color(0xFF121212) // Dark Card (#121212)
+val CallMateNavyBorder = Color(0xFF222222) // Subtle Dark Border (#222222)
 
-val CallMateCyan = Color(0xFF00E5FF)
-val CallMateBlue = Color(0xFF4FACFE)
-val CallMatePurple = Color(0xFF6C5CE7)
-val CallMateTeal = Color(0xFF00BCD4)
+val CallMateCyan = Color(0xFF3291FF) // Vibrant CallMate Blue (#3291FF)
+val CallMateBlue = Color(0xFF3291FF) // Vibrant CallMate Blue (#3291FF)
+val CallMatePurple = Color(0xFF3291FF) // Vibrant CallMate Blue (#3291FF)
+val CallMateTeal = Color(0xFF38BDF8) // Sky Blue (#38BDF8)
 
 // Gradient Brushes
 val CallMatePrimaryGradient = Brush.horizontalGradient(
-    colors = listOf(Color(0xFF4FACFE), Color(0xFF00E5FF))
+    colors = listOf(Color(0xFF2563EB), Color(0xFF38BDF8))
 )
 
 val CallMatePurpleCyanGradient = Brush.horizontalGradient(
-    colors = listOf(Color(0xFF6C5CE7), Color(0xFF00E5FF))
+    colors = listOf(Color(0xFF1D4ED8), Color(0xFF38BDF8))
 )
 
 val CallMateBackgroundGradient = Brush.verticalGradient(
-    colors = listOf(Color(0xFF080B27), Color(0xFF050719))
+    colors = listOf(Color(0xFF000000), Color(0xFF0A0A0A))
 )
 
 val CallMateHeroGradient = Brush.verticalGradient(
-    colors = listOf(Color(0xFF141A36), Color(0xFF0D1126))
+    colors = listOf(Color(0xFF121212), Color(0xFF0A0A0A))
 )
 
 // Material 3 Palette Mappings
-val PrimaryCyan = Color(0xFF00E5FF)
-val PrimaryCyanDark = Color(0xFF4FACFE)
-val PrimaryContainerDark = Color(0xFF141A36)
-val OnPrimaryContainerDark = Color(0xFFE0F7FA)
+val PrimaryCyan = Color(0xFF3291FF)
+val PrimaryCyanDark = Color(0xFF2563EB)
+val PrimaryContainerDark = Color(0xFF121212)
+val OnPrimaryContainerDark = Color(0xFFE0F2FE)
 
-val BackgroundDark = Color(0xFF080B27)
-val SurfaceDark = Color(0xFF0D1126)
-val OnSurfaceDark = Color(0xFFF1F5F9)
-val SurfaceVariantDark = Color(0xFF141A36)
-val OnSurfaceVariantDark = Color(0xFF94A3B8)
+val BackgroundDark = Color(0xFF000000)
+val SurfaceDark = Color(0xFF0A0A0A)
+val OnSurfaceDark = Color(0xFFEDEDED)
+val SurfaceVariantDark = Color(0xFF121212)
+val OnSurfaceVariantDark = Color(0xFFA1A1A1)
 
-// Equal AI & Teal-Neutral Palette (Matching Provided Screenshots)
-val EqualGreen = Color(0xFF94D82D) // Vibrant lime green from Equal AI switch & badges
-val EqualGreenDim = Color(0xFF4A6B17)
-val EqualGreenPill = Color(0xFF384620)
-val EqualGreenPillSelected = Color(0xFF4A601E)
-val EqualGreenText = Color(0xFFD6FF75)
+// CallMate Modern Dark Palette (From Provided Design Mockup)
+val CallMatePrimary = Color(0xFF3291FF) // Primary #3291FF
+val CallMateInk = Color(0xFFEDEDED)     // Ink #EDEDED
+val CallMateSlate = Color(0xFFA1A1A1)   // Slate #A1A1A1
+val CallMateCanvas = Color(0xFF000000)  // Canvas #000000
+val CallMateSurface = Color(0xFF0A0A0A) // Surface #0A0A0A
+val CallMateCard = Color(0xFF121212)    // Card Dark #121212
+val CallMateCardElevated = Color(0xFF181818)
+val CallMateBorder = Color(0xFF222222)  // Subtle Dark Border #222222
+val CallMateActive = Color(0xFF0CCE6B)  // Active #0CCE6B
+val CallMateBadgeGold = Color(0xFFD97706) // "New" badge gold
 
-val TealPrimary = Color(0xFF24C4A4)
-val TealSecondary = Color(0xFF1B8B75)
-val TealContainer = Color(0xFF0F3D35)
+val EqualGreen = Color(0xFF3291FF) // Blue theme for assistant accents
+val EqualGreenDim = Color(0xFF1E3A8A)
+val EqualGreenPill = Color(0xFF172554)
+val EqualGreenPillSelected = Color(0xFF1E40AF)
+val EqualGreenText = Color(0xFF60A5FA)
 
-val MonoBluePrimary = Color(0xFF1A73E8)
-val MonoBlueSecondary = Color(0xFF4A90D9)
+val TealPrimary = Color(0xFF3291FF) // Primary Blue from mockup (#3291FF)
+val TealSecondary = Color(0xFF2563EB)
+val TealContainer = Color(0xFF1E293B)
+
+val MonoBluePrimary = Color(0xFF3291FF)
+val MonoBlueSecondary = Color(0xFF60A5FA)
 val MonoBlueLight = Color(0xFFE8F0FE)
-val MonoBlueCard = Color(0xFF1E3A5F)
+val MonoBlueCard = Color(0xFF1E293B)
 
-val EqualDarkBg = Color(0xFF0E131A)
-val EqualDarkSurface = Color(0xFF161D27)
-val EqualDarkCard = Color(0xFF1F2634)
-val EqualDarkBorder = Color(0xFF2B3648)
-val EqualTextPrimary = Color(0xFFF8FAFC)
-val EqualTextSecondary = Color(0xFF94A3B8)
+val EqualDarkBg = Color(0xFF000000) // Pure black canvas (#000000)
+val EqualDarkSurface = Color(0xFF0A0A0A) // Deep surface (#0A0A0A)
+val EqualDarkCard = Color(0xFF121212) // Card (#121212)
+val EqualDarkBorder = Color(0xFF222222) // Border (#222222)
+val EqualTextPrimary = Color(0xFFEDEDED) // Ink (#EDEDED)
+val EqualTextSecondary = Color(0xFFA1A1A1) // Slate (#A1A1A1)
 
 // WhatsApp Conversation Bubbles
 val WhatsAppIncomingBubble = Color(0xFF1F2C34)
 val WhatsAppOutgoingBubble = Color(0xFF005C4B)
 val WhatsAppCheckBlue = Color(0xFF53BDEB)
 
-// Instagram-style skeleton shimmer
-val ShimmerBase = Color(0xFF1B2332)
-val ShimmerHighlight = Color(0xFF2C394F)
+// Left-to-right skeleton shimmer colors (smooth metallic shine)
+val ShimmerBase = Color(0xFF141414)
+val ShimmerHighlight = Color(0xFF232D3B)
 
 // Urgency badge colors
 val UrgencyLowBg = Color(0xFF064E3B)

@@ -397,8 +397,14 @@ Instructions for action_items:
         action_items = []
         if any(w in full_caller_text for w in ["call back", "call me", "reach me"]):
             action_items.append(f"Return call to {caller_name or caller_number or 'caller'}")
-        if any(w in full_caller_text for w in ["send", "email", "share"]):
-            action_items.append("Review and send requested information")
+        if any(w in full_caller_text for w in ["meet", "meeting", "sche du led", "scheduled", "schedule", "appointment"]):
+            action_items.append(f"Follow up on scheduled meeting with {caller_name or 'caller'}")
+        if any(w in full_caller_text for w in ["send", "email", "share", "doc", "invoice", "report"]):
+            action_items.append(f"Send requested documents/information to {caller_name or 'caller'}")
+        if any(w in full_caller_text for w in ["deliver", "delivery", "parcel", "courier", "package"]):
+            action_items.append(f"Receive delivery from {caller_name or 'courier'}")
+        if any(w in full_caller_text for w in ["pay", "payment", "bill", "due"]):
+            action_items.append(f"Review payment/bill from {caller_name or 'caller'}")
 
         return {
             "summary": summary_text,

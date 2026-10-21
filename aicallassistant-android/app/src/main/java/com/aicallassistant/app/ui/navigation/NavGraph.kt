@@ -1,12 +1,21 @@
 package com.aicallassistant.app.ui.navigation
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -27,12 +36,17 @@ import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Phone
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -256,6 +270,11 @@ fun MainContainerScreen(
     val bottomNavController = rememberNavController()
     val navBackStackEntry by bottomNavController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route ?: BottomNavItem.Chats.route
+    var activeTabRoute by remember { mutableStateOf(BottomNavItem.Chats.route) }
+
+    LaunchedEffect(currentRoute) {
+        activeTabRoute = currentRoute
+    }
 
     val items = listOf(
         BottomNavItem.Chats,
@@ -264,10 +283,29 @@ fun MainContainerScreen(
         BottomNavItem.You
     )
 
+    var isDockVisible by remember { mutableStateOf(true) }
+
+    val nestedScrollConnection = remember {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                // When scrolling down, hide the dock
+                if (available.y < -10f) {
+                    if (isDockVisible) isDockVisible = false
+                }
+                // When scrolling up, show the dock
+                else if (available.y > 10f) {
+                    if (!isDockVisible) isDockVisible = true
+                }
+                return Offset.Zero
+            }
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(EqualDarkBg)
+            .nestedScroll(nestedScrollConnection)
     ) {
         // Main Tab Content
         NavHost(
@@ -315,75 +353,84 @@ fun MainContainerScreen(
             }
         }
 
-        // Floating Pill Navigation Bar (Matching Screenshot 2 & 3)
-        Box(
+        // Floating Capsule Navigation Bar with Auto-Hide on Scroll
+        AnimatedVisibility(
+            visible = isDockVisible,
+            enter = slideInVertically(
+                initialOffsetY = { it },
+                animationSpec = tween(durationMillis = 220)
+            ) + fadeIn(animationSpec = tween(180)),
+            exit = slideOutVertically(
+                targetOffsetY = { it },
+                animationSpec = tween(durationMillis = 220)
+            ) + fadeOut(animationSpec = tween(180)),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
                 .navigationBarsPadding()
-                .padding(bottom = 12.dp, start = 20.dp, end = 20.dp),
-            contentAlignment = Alignment.Center
+                .padding(bottom = 14.dp, start = 40.dp, end = 40.dp)
         ) {
-            Surface(
-                shape = RoundedCornerShape(36.dp),
-                color = Color(0xFF1E2822).copy(alpha = 0.95f),
-                border = BorderStroke(1.dp, Color(0xFF334637)),
-                shadowElevation = 10.dp
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center
             ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                Surface(
+                    shape = RoundedCornerShape(32.dp),
+                    color = com.aicallassistant.app.ui.theme.CallMateSurface,
+                    border = BorderStroke(1.dp, com.aicallassistant.app.ui.theme.CallMateBorder),
+                    shadowElevation = 12.dp
                 ) {
-                    items.forEach { item ->
-                        val isSelected = currentRoute == item.route
-                        val animatedBg by animateColorAsState(
-                            targetValue = if (isSelected) EqualGreenPillSelected else Color.Transparent,
-                            animationSpec = tween(durationMillis = 200),
-                            label = "tab_pill_bg"
-                        )
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        items.forEach { item ->
+                            val isSelected = activeTabRoute == item.route
+                            val interactionSource = remember { MutableInteractionSource() }
 
-                        Surface(
-                            shape = RoundedCornerShape(24.dp),
-                            color = animatedBg,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(24.dp))
-                                .clickable {
-                                    if (currentRoute != item.route) {
-                                        bottomNavController.navigate(item.route) {
-                                            popUpTo(bottomNavController.graph.findStartDestination().id) {
-                                                saveState = true
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier
+                                    .clickable(
+                                        interactionSource = interactionSource,
+                                        indication = null
+                                    ) {
+                                        if (activeTabRoute != item.route) {
+                                            activeTabRoute = item.route
+                                            bottomNavController.navigate(item.route) {
+                                                popUpTo(bottomNavController.graph.findStartDestination().id) {
+                                                    saveState = true
+                                                }
+                                                launchSingleTop = true
+                                                restoreState = true
                                             }
-                                            launchSingleTop = true
-                                            restoreState = true
                                         }
                                     }
-                                }
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .padding(horizontal = 16.dp, vertical = 6.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
                             ) {
-                                if (item.isUserTab) {
-                                    UserProfileAvatar(size = 22.dp)
-                                } else {
+                                Box(
+                                    modifier = Modifier
+                                        .size(width = 44.dp, height = 36.dp)
+                                        .clip(RoundedCornerShape(14.dp))
+                                        .background(if (isSelected) Color.White else Color.Transparent),
+                                    contentAlignment = Alignment.Center
+                                ) {
                                     Icon(
                                         imageVector = if (isSelected) item.activeIcon else item.inactiveIcon,
                                         contentDescription = item.title,
-                                        tint = if (isSelected) EqualGreen else EqualTextSecondary,
-                                        modifier = Modifier.size(22.dp)
+                                        tint = if (isSelected) Color.Black else com.aicallassistant.app.ui.theme.CallMateSlate,
+                                        modifier = Modifier.size(20.dp)
                                     )
                                 }
 
-                                Spacer(modifier = Modifier.height(2.dp))
+                                Spacer(modifier = Modifier.height(3.dp))
 
-                                Text(
-                                    text = item.title,
-                                    fontSize = 11.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                    color = if (isSelected) EqualGreenText else EqualTextSecondary
+                                // Small indicator dot below selected item
+                                Box(
+                                    modifier = Modifier
+                                        .size(3.5.dp)
+                                        .clip(androidx.compose.foundation.shape.CircleShape)
+                                        .background(if (isSelected) Color.White else Color.Transparent)
                                 )
                             }
                         }
